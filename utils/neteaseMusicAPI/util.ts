@@ -1,5 +1,6 @@
 import Encrypt from "./crypto.js";
 import request from "../request/index.ts";
+import Cookie from "../cookie.ts";
 
 function randomUserAgent() {
   const userAgentList = [
@@ -35,12 +36,15 @@ export async function createWebAPIRequest<
   data: Record<string | number, any>,
   cookie: string,
   method: string,
-  callback: (res: T, cookie: string | null | any[]) => Promise<void>,
+  callback: (res: T, cookie: string) => Promise<void>,
   errorcallback: (e: Error) => Promise<void>,
 ): Promise<void> {
-  const proxy = cookie.split("__proxy__")[1];
-  let _cookie = cookie.split("__proxy__")[0];
-  const cryptoreq = await Encrypt(data);
+  const requestCookie = new Cookie(cookie);
+  const csrf_token = requestCookie.get("__csrf") || "";
+  const cryptoreq = await Encrypt({
+    ...data,
+    csrf_token,
+  });
   const body = new URLSearchParams(cryptoreq);
   const options = {
     url: `http://${host}${path}`,
@@ -52,25 +56,29 @@ export async function createWebAPIRequest<
       "Content-Type": "application/x-www-form-urlencoded",
       Referer: "http://music.163.com",
       Host: "music.163.com",
-      Cookie: _cookie,
+      Cookie: cookie,
       "User-Agent": randomUserAgent(),
     },
     body: body,
-    proxy: proxy,
   };
 
   try {
     const res = await request(options);
-    //解决 网易云 cookie 添加 .music.163.com 域设置。
-    //如： Domain=.music.163.com
-    let cookie: string | any[] | null = res.headers.get("set-cookie");
-    if (Array.isArray(cookie)) {
-      cookie = cookie
-        .map((x) => x.replace(/.music.163.com/g, ""))
-        .sort((a, b) => a.length - b.length);
+    //格式化 网易云 cookie
+    const setCookie: string | null = res.headers.get("set-cookie");
+    if (setCookie) {
+      const _cookie = new Cookie(
+        setCookie.replace(/Domain=\.music\.163\.com,/g, ""),
+      );
+      ["Path", "Max-Age", "Expires", "Domain", "HTTPOnly"].forEach((key) => {
+        _cookie.deleteByKey(key);
+      });
+      Array.from(_cookie.getAll().entries()).map(([key, value]) => {
+        requestCookie.set(key, value);
+      });
     }
     const json = await res.json();
-    await callback(json, cookie);
+    await callback(json, requestCookie.toString());
   } catch (e) {
     await errorcallback(e);
   }

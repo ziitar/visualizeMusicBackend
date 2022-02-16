@@ -11,6 +11,9 @@ const pubKey = '010001'
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
+/**
+ * 生成16位随机字符串
+*/
 export function createSecretKey(size) {
   const keys = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let key = ''
@@ -22,6 +25,12 @@ export function createSecretKey(size) {
   return key
 }
 
+/**
+ *  AES-CBC 明文加密方法 
+ * @param {string} text 明文
+ * @param {string} secKey 公钥
+ * @returns base64编码的密文
+ */
 export async function aesEncrypt(text, secKey) {
   const _text = textEncoder.encode(text)
   const lv = textEncoder.encode('0102030405060708')
@@ -42,10 +51,14 @@ export async function aesEncrypt(text, secKey) {
 
   return base64Encode(encryptArrayBuffer)
 }
-function zfill(str, size) {
-  while (str.length < size) str = '0' + str
-  return str
-}
+
+/**
+ * RSA 公钥加密方法
+ * @param {string} text 密钥的明文字符串
+ * @param {string} pubKey 公共key的16进制字符串
+ * @param {string} modulus N的16进制字符串
+ * @returns 256位16进制字符串
+ */
 export function rsaEncrypt(text, pubKey, modulus) {
   const _text = text.split('').reverse().join('');
   
@@ -53,9 +66,15 @@ export function rsaEncrypt(text, pubKey, modulus) {
     biEx = BigInt(`0x${pubKey}`),
     biMod = BigInt(`0x${modulus}`),
     biRet = B.modPow(biText, biEx, biMod);
-  return zfill(biRet.toString(16), 256)
+  return biRet.toString(16).padStart(256,'0')
 }
 
+/**
+ * 整合加密程序
+ * @param {object} obj 待加密的明文对象
+ * @param {string} [secKeyde]  公钥 可选
+ * @returns 网易云音乐接口所需的 params和encSecKey
+ */
 export default async function Encrypt(obj, secKeyde) {
   const text = JSON.stringify(obj)
   const secKey =  secKeyde || createSecretKey(16)

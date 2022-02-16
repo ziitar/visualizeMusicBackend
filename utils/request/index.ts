@@ -19,7 +19,7 @@ export function formatConfig(config: RequestConfig): Request {
       if (!isRequestBodyInit(body)) {
         switch (config.method) {
           case "get":
-          case "GET":
+          case "GET": {
             const searchParam = new URLSearchParams(
               body as Record<string | number, any>,
             );
@@ -29,6 +29,7 @@ export function formatConfig(config: RequestConfig): Request {
               transformUrl += `?${searchParam.toString()}`;
             }
             break;
+          }
           case "post":
           case "POST":
           default:
