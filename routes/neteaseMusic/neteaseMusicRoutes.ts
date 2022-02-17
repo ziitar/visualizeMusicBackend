@@ -8,6 +8,12 @@ import {
 import { createWebAPIRequest } from "../../utils/neteaseMusicAPI/util.ts";
 import { Session } from "https://deno.land/x/oak_sessions@v3.2.5/mod.ts";
 import Cookie from "../../utils/cookie.ts";
+import {
+  NEMAPIFactory,
+  SearchSongResultType,
+  UserInfoType,
+} from "./typing.d.ts";
+
 const router = new Router<{ session: Session }>();
 
 async function resolve<
@@ -65,6 +71,32 @@ router.get("/search/:keywords", async (ctx, next) => {
       (res, cookie) => resolve(res, cookie, ctx, next),
       (err) => reject(err, ctx, next),
     );
+  } else {
+    ctx.response.status = 400;
+    await next();
+  }
+});
+
+router.get("/musicUrl/:id", async (ctx, next) => {
+  const id = ctx.params.id;
+  const { br = 999000 } = helpers.getQuery(ctx);
+  if (id) {
+    const NEM_cookie = await ctx.state.session.get("NEM_cookie") as string;
+    await createWebAPIRequest<NEMAPIFactory<SearchSongResultType>>(
+      "music.163.com",
+      "/weapi/song/enhance/player/url",
+      {
+        ids: [id],
+        br: br,
+      },
+      NEM_cookie || "",
+      "POST",
+      (res, cookie) => resolve(res, cookie, ctx, next),
+      (err) => reject(err, ctx, next),
+    );
+  } else {
+    ctx.response.status = 400;
+    await next();
   }
 });
 
@@ -87,6 +119,9 @@ router.post("/login", async (ctx, next) => {
       (res, cookie) => resolve(res, cookie, ctx, next),
       (err) => reject(err, ctx, next),
     );
+  } else {
+    ctx.response.status = 400;
+    await next();
   }
 });
 export default router;

@@ -1,8 +1,8 @@
-type NEMAPIFactory<T> = T & {
+export type NEMAPIFactory<T> = T & {
   code: number;
 };
 
-interface UserInfoType {
+export interface UserInfoType {
   loginType: number;
   account: {
     id: number;
@@ -21,7 +21,7 @@ interface UserInfoType {
   };
 }
 
-interface SearchSongResultType {
+export interface SearchSongResultType {
   result: {
     songs: {
       id: number;

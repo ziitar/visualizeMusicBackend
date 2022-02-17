@@ -1,7 +1,7 @@
 import { DataTypes, Model } from "https://deno.land/x/denodb@v1.0.40/mod.ts";
 
-class User extends Model {
-  static table = "user";
+class Sheet extends Model {
+  static table = "sheet";
 
   static timestamps = true;
 
@@ -12,11 +12,9 @@ class User extends Model {
       autoIncrement: true,
       allowNull: false,
     },
-    username: DataTypes.STRING,
-    password: DataTypes.STRING,
-    email: DataTypes.STRING,
-    headUrl: DataTypes.STRING,
+    sheetName: DataTypes.STRING,
+    url: DataTypes.STRING,
   };
 }
 
-export default User;
+export default Sheet;
