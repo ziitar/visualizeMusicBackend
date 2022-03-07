@@ -12,8 +12,8 @@ db.link([
   Sheet,
   Song,
 ]);
-db.sync({
-  drop: true,
-});
+// db.sync({
+//   drop: true,
+// });
 
 export { Sheet, Song, User };
