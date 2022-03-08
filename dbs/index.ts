@@ -5,15 +5,16 @@ import Sheet from "../models/sheet.ts";
 import { Relationships } from "https://deno.land/x/denodb@v1.0.40/mod.ts";
 
 Relationships.belongsTo(Sheet, User);
-Relationships.belongsTo(Song, Sheet);
+const SongSheet = Relationships.manyToMany(Song, Sheet);
 
 db.link([
   User,
   Sheet,
   Song,
+  SongSheet,
 ]);
 // db.sync({
 //   drop: true,
 // });
 
-export { Sheet, Song, User };
+export { db, Sheet, Song, SongSheet, User };
