@@ -22,8 +22,8 @@ export function isEmptyObject(obj: { [key: string]: any }): boolean {
   return true;
 }
 export function isTrulyValue(v: any): boolean {
-  if (typeof v === "number") {
-    return !(v === 0);
+  if (v === 0) {
+    return true;
   } else {
     return !!v;
   }

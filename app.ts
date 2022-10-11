@@ -18,6 +18,10 @@ app.use(async (ctx, next) => {
       "Access-Control-Request-Method",
       "POST,GET,OPTIONS,DELETE,PUT",
     );
+    ctx.response.headers.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type",
+    );
   } catch (e) {
     console.error(e);
   }

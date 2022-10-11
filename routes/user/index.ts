@@ -10,6 +10,33 @@ async function checkName(name: string): Promise<boolean> {
   return !(count > 0);
 }
 
+router.get("/user", async (ctx, next) => {
+  const { userId: id } = helpers.getQuery(ctx);
+  const userId = id || await ctx.state.session.get("userId") as number;
+  if (isTrulyValue(userId)) {
+    try {
+      const user = await User.find(userId);
+      if (user) {
+        ctx.response.body = {
+          code: 200,
+          result: user,
+        };
+        await next();
+        return;
+      }
+    } catch (e) {
+      ctx.response.status = 500;
+      await next();
+    }
+  }
+  ctx.response.body = {
+    code: 200,
+    result: undefined,
+    msg: "无用户信息",
+  };
+  await next();
+});
+
 router.get("/checkName", async (ctx, next) => {
   const { name } = helpers.getQuery(ctx);
   if (isTrulyValue(name)) {
@@ -48,6 +75,10 @@ router.post("/register", async (ctx, next) => {
         ctx.response.body = {
           code: 200,
           status: 1,
+          result: {
+            ...user,
+            password: undefined,
+          },
           msg: "创建成功",
         };
       } else {
