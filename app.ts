@@ -13,14 +13,21 @@ app.use(router.allowedMethods());
 app.use(async (ctx, next) => {
   try {
     await next();
-    ctx.response.headers.set("Access-Control-Allow-Origin", "*");
     ctx.response.headers.set(
-      "Access-Control-Request-Method",
-      "POST,GET,OPTIONS,DELETE,PUT",
+      "Access-Control-Allow-Origin",
+      "http://localhost:4200",
+    );
+    ctx.response.headers.set(
+      "Access-Control-Allow-Methods",
+      "GET, POST, OPTIONS, PUT, DELETE",
     );
     ctx.response.headers.set(
       "Access-Control-Allow-Headers",
       "Content-Type",
+    );
+    ctx.response.headers.set(
+      "Access-Control-Allow-Credentials",
+      "true",
     );
   } catch (e) {
     console.error(e);

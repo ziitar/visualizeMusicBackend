@@ -40,7 +40,7 @@ router.post("/", async (ctx, next) => {
       } else {
         ctx.response.status = 200;
         ctx.response.body = {
-          code: -1,
+          code: 402,
           result: false,
           msg: "名称重复",
         };
@@ -254,21 +254,25 @@ router.get("/song/:id", async (ctx, next) => {
   if (userId) {
     if (isTrulyArg(id)) {
       try {
-        const num = await Sheet.where({
+        const sheetsModel = await Sheet.where({
           userId,
           id,
-        }).count();
+        });
+        const num = await sheetsModel.count();
         if (num) {
-          const data = await Song.where(SongSheet.field("sheet_id"), id)
+          const data = await SongSheet.where(SongSheet.field("sheet_id"), id)
             .leftJoin(
-              SongSheet,
-              SongSheet.field("song_id"),
+              Song,
               Song.field("id"),
+              SongSheet.field("song_id"),
             ).get();
           ctx.response.status = 200;
           ctx.response.body = {
             code: 200,
-            result: data,
+            result: {
+              songs: data,
+              sum: data.length,
+            },
             msg: "操作成功",
           };
         } else {

@@ -40,3 +40,32 @@ export interface SearchSongResultType {
     songCount: number;
   };
 }
+
+export interface SongResultType {
+  data: {
+    id: number;
+    url: string;
+    size: number;
+    md5: string;
+  }[];
+}
+
+export interface SongDetailResultType {
+  songs: {
+    name: string;
+    id: number;
+    ar: {
+      id: number;
+      name: string;
+      alias: string[];
+    }[];
+    alia: string[];
+    al: {
+      id: number;
+      name: string;
+      picUrl: string;
+      pic_str: string;
+      pic: number;
+    };
+  }[];
+}

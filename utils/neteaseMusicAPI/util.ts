@@ -38,6 +38,7 @@ export async function createWebAPIRequest<
   method: string,
   callback: (res: T, cookie: string) => Promise<void>,
   errorcallback: (e: Error) => Promise<void>,
+  tls?: boolean,
 ): Promise<void> {
   const requestCookie = new Cookie(cookie);
   const csrf_token = requestCookie.get("__csrf") || "";
@@ -47,14 +48,14 @@ export async function createWebAPIRequest<
   });
   const body = new URLSearchParams(cryptoreq);
   const options = {
-    url: `http://${host}${path}`,
+    url: `${tls ? "https" : "http"}://${host}${path}`,
     method: method,
     headers: {
       Accept: "*/*",
       "Accept-Language": "zh-CN,zh;q=0.8,gl;q=0.6,zh-TW;q=0.4",
       Connection: "keep-alive",
       "Content-Type": "application/x-www-form-urlencoded",
-      Referer: "http://music.163.com",
+      Referer: `${tls ? "https" : "http"}` + "://music.163.com",
       Host: "music.163.com",
       Cookie: cookie,
       "User-Agent": randomUserAgent(),

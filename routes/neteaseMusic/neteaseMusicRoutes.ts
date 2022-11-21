@@ -11,6 +11,8 @@ import Cookie from "../../utils/cookie.ts";
 import {
   NEMAPIFactory,
   SearchSongResultType,
+  SongDetailResultType,
+  SongResultType,
   UserInfoType,
 } from "./typing.d.ts";
 
@@ -36,8 +38,14 @@ async function resolve<
     ctx.response.body = res;
     await next();
   } else {
-    ctx.response.status = res.code;
-    await next();
+    if (res.code > 0) {
+      ctx.response.status = res.code;
+      await next();
+    } else {
+      ctx.response.status = 502;
+      ctx.response.body = res;
+      await next();
+    }
   }
 }
 
@@ -82,12 +90,73 @@ router.get("/musicUrl/:id", async (ctx, next) => {
   const { br = 999000 } = helpers.getQuery(ctx);
   if (id) {
     const NEM_cookie = await ctx.state.session.get("NEM_cookie") as string;
-    await createWebAPIRequest<NEMAPIFactory<SearchSongResultType>>(
+    await createWebAPIRequest<NEMAPIFactory<SongResultType>>(
       "music.163.com",
       "/weapi/song/enhance/player/url",
       {
         ids: [id],
         br: br,
+      },
+      NEM_cookie || "",
+      "POST",
+      (res, cookie) => {
+        const result = {
+          code: res.code,
+          result: res.data,
+        };
+        return resolve(result, cookie, ctx, next);
+      },
+      (err) => reject(err, ctx, next),
+    );
+  } else {
+    ctx.response.status = 400;
+    await next();
+  }
+});
+
+router.get("/song/detail/:id", async (ctx, next) => {
+  const id = ctx.params.id;
+
+  if (id) {
+    const NEM_cookie = await ctx.state.session.get("NEM_cookie") as string;
+    await createWebAPIRequest<NEMAPIFactory<SongDetailResultType>>(
+      "music.163.com",
+      "/weapi/v3/song/detail",
+      {
+        c: JSON.stringify([{ id: `${id}` }]),
+      },
+      NEM_cookie || "",
+      "POST",
+      (res, cookie) => {
+        const result = {
+          code: res.code,
+          result: {
+            ...res.songs[0]?.al,
+            artists: res.songs[0]?.ar,
+          },
+        };
+        return resolve(result, cookie, ctx, next);
+      },
+      (err) => reject(err, ctx, next),
+      true,
+    );
+  } else {
+    ctx.response.status = 400;
+    await next();
+  }
+});
+
+router.get("/song/lyric/:id", async (ctx, next) => {
+  const id = ctx.params.id;
+  if (id) {
+    const NEM_cookie = await ctx.state.session.get("NEM_cookie") as string;
+    await createWebAPIRequest<NEMAPIFactory<SearchSongResultType>>(
+      "music.163.com",
+      "/weapi/song/lyric",
+      {
+        id: Number(id),
+        lv: -1,
+        tv: -1,
       },
       NEM_cookie || "",
       "POST",
@@ -123,5 +192,15 @@ router.post("/login", async (ctx, next) => {
     ctx.response.status = 400;
     await next();
   }
+});
+
+router.get("/media/:url", async (ctx, next) => {
+  let url = await ctx.params.url;
+  url = decodeURIComponent(url);
+  const res = await fetch(url);
+  ctx.response.status = res.status;
+  ctx.response.headers = new Headers(res.headers);
+  ctx.response.body = await res.blob();
+  await next();
 });
 export default router;
