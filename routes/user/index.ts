@@ -161,5 +161,26 @@ router.post("/login", async (ctx, next) => {
     await next();
   }
 });
+router.put("/loginOut", async (ctx, next) => {
+  const userId = ctx.state.session.get("userId");
+  if (isTrulyArg(userId)) {
+    ctx.state.session.set("userId", undefined);
+    ctx.response.status = 200;
+    ctx.response.body = {
+      code: 200,
+      status: 1,
+      msg: "退出登录成功",
+    };
+    await next();
+  } else {
+    ctx.response.status = 400;
+    ctx.response.body = {
+      code: 400,
+      status: 0,
+      msg: "找不到用户",
+    };
+    await next();
+  }
+});
 
 export default router;
