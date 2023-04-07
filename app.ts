@@ -10,13 +10,22 @@ app.use(session.initMiddleware());
 
 app.use(router.routes());
 app.use(router.allowedMethods());
+
+const allowedHost: string[] = [
+  "http://192.168.1.189:4200",
+  "http://localhost:4200",
+  "http://dynamic.uziitar.gq:14200",
+];
 app.use(async (ctx, next) => {
   try {
     await next();
-    ctx.response.headers.set(
-      "Access-Control-Allow-Origin",
-      "http://localhost:4200",
-    );
+    const origin = ctx.request.headers.get("Origin");
+    if (origin && allowedHost.includes(origin)) {
+      ctx.response.headers.set(
+        "Access-Control-Allow-Origin",
+        origin,
+      );
+    }
     ctx.response.headers.set(
       "Access-Control-Allow-Methods",
       "GET, POST, OPTIONS, PUT, DELETE",
