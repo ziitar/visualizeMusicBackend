@@ -1,12 +1,15 @@
-import { Application } from "https://deno.land/x/oak@v10.2.1/mod.ts";
+import { Application } from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import router from "./routes/index.ts";
-import { Session } from "https://deno.land/x/oak_sessions@v3.2.5/mod.ts";
+import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
 
-const app = new Application();
-const session = new Session();
+export type AppState = {
+  session: Session;
+};
+
+const app = new Application<AppState>();
 
 //@ts-ignore
-app.use(session.initMiddleware());
+app.use(Session.initMiddleware());
 
 app.use(router.routes());
 app.use(router.allowedMethods());

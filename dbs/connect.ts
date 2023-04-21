@@ -1,7 +1,7 @@
 import {
   Database,
   MySQLConnector,
-} from "https://deno.land/x/denodb@v1.0.40/mod.ts";
+} from "https://deno.land/x/denodb@v1.4.0/mod.ts";
 
 const connection = new MySQLConnector({
   host: "localhost",
