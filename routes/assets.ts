@@ -18,5 +18,13 @@ router.get("/:url", async (ctx, next) => {
     await next();
   }
 });
-
+router.get("/proxy/:url", async (ctx, next) => {
+  let url = await ctx.params.url;
+  url = decodeURIComponent(url);
+  const res = await fetch(url);
+  ctx.response.status = res.status;
+  ctx.response.headers = new Headers(res.headers);
+  ctx.response.body = await res.blob();
+  await next();
+});
 export default router;
