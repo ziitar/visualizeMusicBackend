@@ -15,7 +15,7 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 const allowedHost: string[] = [
-  "http://192.168.1.189:4200",
+  "http://192.168.1.117:4200",
   "http://localhost:4200",
   "http://dynamic.uziitar.gq:14200",
 ];

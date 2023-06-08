@@ -16,6 +16,8 @@ class Song extends Model {
     authors: {
       type: DataTypes.STRING,
     },
+    headerImg: DataTypes.STRING,
+    duration: DataTypes.BIG_INTEGER,
   };
 }
 
