@@ -8,16 +8,25 @@ class Song extends Model {
   static fields = {
     id: {
       type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
       allowNull: false,
     },
-    songName: DataTypes.STRING,
+    title: DataTypes.STRING,
     url: DataTypes.STRING,
-    authors: {
+    artist: {
       type: DataTypes.STRING,
+      allowNull: false,
     },
-    headerImg: DataTypes.STRING,
-    duration: DataTypes.BIG_INTEGER,
+    album: DataTypes.STRING,
+    albumartist: DataTypes.STRING,
+    year: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    picUrl: DataTypes.STRING,
+    duration: DataTypes.STRING,
+    type: DataTypes.enum(["single", "tracks"]),
   };
 }
 

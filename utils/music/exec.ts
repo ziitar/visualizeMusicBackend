@@ -42,7 +42,7 @@ function getExtension(mine: string) {
 }
 
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
-type SaveType = Omit<ItemType, "picture"> & {
+export type SaveType = Omit<ItemType, "picture"> & {
   picUrl: string;
   duration?: string;
 };
@@ -98,6 +98,8 @@ export async function saveResult(path: string, exclude: string[]) {
           "Front.jpg",
           "Back.jpg",
           "back.jpg",
+          "folder.jpg",
+          "folder.png",
           "Cover.png",
           "cover.png",
           "front.png",
@@ -128,7 +130,7 @@ export async function saveResult(path: string, exclude: string[]) {
                 ...item,
                 url: audioFile,
                 title: track.title,
-                artist: track.performer,
+                artist: track.performer || cueSheet.performer,
                 album: cueSheet.title,
                 albumartist: cueSheet.performer,
                 picUrl,
