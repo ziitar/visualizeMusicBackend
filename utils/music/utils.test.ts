@@ -143,3 +143,15 @@ Deno.test({
     assertEquals(typeof duration, "number");
   },
 });
+
+Deno.test({
+  name: "test file exist",
+  ignore: true,
+  fn: async () => {
+    const path =
+      "C:\\Users\\uziit\\AppData\\Local\\Temp\\55324f96/5d8395c7f324f7455b09abddc2fea32c060c906b.jpeg";
+    const exist = await exists(path);
+    console.log(exist);
+    assertEquals(exist, true);
+  },
+});
