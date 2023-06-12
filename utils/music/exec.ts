@@ -10,8 +10,8 @@ import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
 import { t2s } from "./chinese-s2t/index.ts";
 
-export function getExtension(mine: string) {
-  const [main, sub] = mine.split("/");
+export function getExtension(mime: string) {
+  const [main, sub] = mime.split("/");
   if (main === "image") {
     switch (sub) {
       case "png":

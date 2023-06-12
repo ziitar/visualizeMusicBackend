@@ -1,3 +1,4 @@
 {
-  "ffprobePath": "C:\\Program Files\\ffmpeg-6.0-essentials_build\\ffmpeg-6.0-essentials_build\\bin\\ffprobe.exe"
+  "ffprobePath": "C:\\Program Files\\ffmpeg-6.0-essentials_build\\ffmpeg-6.0-essentials_build\\bin\\ffprobe.exe",
+  "serverHost": "http://localhost:7000"
 }

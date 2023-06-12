@@ -3,6 +3,7 @@ import { helpers, Router } from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { getExtension } from "../../utils/music/exec.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
+import config from "../../config.json" assert { type: "json" };
 interface SaveType {
   [key: string]: any;
   type: "tracks" | "single";
@@ -124,10 +125,13 @@ router.post("/create", async (ctx, next) => {
     if (title && url && album && type && duration) {
       if (picData && picData.length) {
         const picFile = picData[0];
+        const picName = `${album.replace(/[\\/:?''<>|]/g, "-")}${
+          getExtension(picFile.contentType)
+        }`;
         picUrl = denoPath.join(
           __dirname,
           "../../assets",
-          `${album}${getExtension(picFile.contentType)}`,
+          picName,
         );
         if (!await exists(picUrl)) {
           if (picFile.content) {
@@ -139,6 +143,7 @@ router.post("/create", async (ctx, next) => {
             );
           }
         }
+        picUrl = `${config.serverHost}/assets/${picName}`;
       }
       await Song.create({
         title,
@@ -148,7 +153,7 @@ router.post("/create", async (ctx, next) => {
         duration,
         album,
         albumartist: albumartist || "",
-        year: year || "",
+        year: year || null,
         picUrl: picUrl || "",
       });
       ctx.response.status = 200;
