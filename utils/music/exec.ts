@@ -9,36 +9,10 @@ import {
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
 import { t2s } from "./chinese-s2t/index.ts";
+import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 
-export function getExtension(mime: string) {
-  const [main, sub] = mime.split("/");
-  if (main === "image") {
-    switch (sub) {
-      case "png":
-      case "x-png":
-      case "x-citrix-png":
-        return ".png";
-      case "x-icon":
-        return ".ico";
-      case "gif":
-        return ".gif";
-      case "bmp":
-        return ".bmp";
-      case "webp":
-        return ".webp";
-      case "tiff":
-        return ".tiff";
-      case "x-rgb":
-        return ".rgb";
-      case "svg+xml":
-        return ".svg";
-      case "jpeg":
-      case "x-citrix-jpeg":
-      default:
-        return ".jpg";
-    }
-  }
-  return "";
+export function getExtension(str: string) {
+  return mime.getExtension(str);
 }
 
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));

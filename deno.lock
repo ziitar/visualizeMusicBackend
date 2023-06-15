@@ -799,6 +799,8 @@
     "https://deno.land/x/denodb@v1.4.0/lib/translators/sql-translator.ts": "8dbe05021f03cf8a7fed2619a29546c4851134e2ea9d7670ee72b95492a9ba0b",
     "https://deno.land/x/denodb@v1.4.0/lib/translators/translator.ts": "6c8b0fa23eb5c1c777bcc34af05b66637f207e9f5134643b3be33bcd657ae4e9",
     "https://deno.land/x/denodb@v1.4.0/mod.ts": "ff3f31b25895670a5d3055e5c5fbfa4722ff2486f4f77b930477ab4d79bc5b2d",
+    "https://deno.land/x/mimetypes@v1.0.0/mod.ts": "abd1ea614b32cfa7fd50b46f6e070617696664698b8a34935dc807f3035ad408",
+    "https://deno.land/x/mimetypes@v1.0.0/src/mime.ts": "7cd7590eae6127dc1abfe710900fc749e94d5c715ffe8a148e59fe20ee21a9a5",
     "https://deno.land/x/mongo@v0.28.1/bson/bson.d.ts": "9dff17bcff352a3198b6f2f4abe685b5cddd3c7bfeb8d5b399973450a7859a16",
     "https://deno.land/x/mongo@v0.28.1/bson/bson.ts": "b9c2a1e4b4419bc7e788f0a44996812174393083278c3552e22dcf675693a563",
     "https://deno.land/x/mongo@v0.28.1/deps.ts": "6c61093d6df600d3ea7520edc4903fe86dab0d5ccf452b41b4e6f8a1f014ea74",
