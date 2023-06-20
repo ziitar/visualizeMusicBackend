@@ -114,6 +114,42 @@ router.get("/musicUrl/:id", async (ctx, next) => {
   }
 });
 
+router.get("/musicUrl/v1/:id", async (ctx, next) => {
+  const id = ctx.params.id;
+  const { level = "lossless" } = helpers.getQuery(ctx);
+  if (id) {
+    let NEM_cookie = await ctx.state.session.get("NEM_cookie") as string || "";
+    NEM_cookie += "; os=android; appver=8.10.05";
+    const extendsObj: { immerseType?: string } = {};
+    if (level == "sky") {
+      extendsObj.immerseType = "c51";
+    }
+    await createWebAPIRequest<NEMAPIFactory<SongResultType>>(
+      "interface.music.163.com",
+      "/eapi/song/enhance/player/url/v1",
+      {
+        ids: [id],
+        level: level,
+        encodeType: "flac",
+        ...extendsObj,
+      },
+      NEM_cookie,
+      "POST",
+      (res, cookie) => {
+        const result = {
+          code: res.code,
+          result: res.data,
+        };
+        return resolve(result, cookie, ctx, next);
+      },
+      (err) => reject(err, ctx, next),
+    );
+  } else {
+    ctx.response.status = 400;
+    await next();
+  }
+});
+
 router.get("/song/detail/:id", async (ctx, next) => {
   const id = ctx.params.id;
 
@@ -158,6 +194,25 @@ router.get("/song/lyric/:id", async (ctx, next) => {
         lv: -1,
         tv: -1,
       },
+      NEM_cookie || "",
+      "POST",
+      (res, cookie) => resolve(res, cookie, ctx, next),
+      (err) => reject(err, ctx, next),
+    );
+  } else {
+    ctx.response.status = 400;
+    await next();
+  }
+});
+
+router.get("/album/:id", async (ctx, next) => {
+  const id = ctx.params.id;
+  if (id) {
+    const NEM_cookie = await ctx.state.session.get("NEM_cookie") as string;
+    await createWebAPIRequest<NEMAPIFactory<SearchSongResultType>>(
+      "music.163.com",
+      `/weapi/v1/album/${id}`,
+      {},
       NEM_cookie || "",
       "POST",
       (res, cookie) => resolve(res, cookie, ctx, next),

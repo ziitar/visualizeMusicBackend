@@ -28,6 +28,37 @@ function randomUserAgent() {
   return userAgentList[num];
 }
 
+type BodyType =
+  | "text"
+  | "json"
+  | "arrayBuffer"
+  | "formData"
+  | "blob"
+  | undefined;
+
+export function getBodyType(contentType: string): BodyType {
+  const type = contentType.split(";").filter((item) =>
+    /^[\w]+\/[\w]+$/.test(item)
+  );
+  if (type.length) {
+    const [mainType, subType] = type[0].split("/");
+    if (mainType === "text") {
+      return "text";
+    } else if (mainType === "application") {
+      if (subType === "json") {
+        return "json";
+      } else {
+        return "arrayBuffer";
+      }
+    } else if (mainType === "multipart") {
+      return "formData";
+    } else {
+      return "blob";
+    }
+  }
+  return undefined;
+}
+
 export async function createWebAPIRequest<
   T extends Record<string | number, any>,
 >(
@@ -78,8 +109,24 @@ export async function createWebAPIRequest<
         requestCookie.set(key, value);
       });
     }
-    const json = await res.json();
-    await callback(json, requestCookie.toString());
+    const contentType = res.headers.get("Content-Type");
+    let result;
+    if (contentType) {
+      const fn = getBodyType(contentType);
+      try {
+        if (fn) {
+          result = await res[fn]();
+          if (fn === "text" && /^\{.+\}$/.test(result)) {
+            result = JSON.parse(result);
+          }
+        } else {
+          result = await res.json();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    await callback(result, requestCookie.toString());
   } catch (e) {
     await errorcallback(e);
   }
