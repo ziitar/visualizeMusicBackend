@@ -7,7 +7,7 @@ import connectInfo from "../connect.json" assert { type: "json" };
 
 const connection = new MySQLConnector({
   host: connectInfo.host,
-  port: 3306,
+  port: connectInfo.port,
   username: connectInfo.user,
   password: connectInfo.password,
   database: connectInfo.dataBase,

@@ -25,12 +25,34 @@ visualizeMusic的后端项目。基于deno编写。
 1. 安装[deno](https://www.denojs.cn/)
 2. 下载本项目
 
-```shell
-> git clone https://github.com/ziitar/visualizeMusicBackend.git && cd visualizeMusicBackend
-```
+   ```cmd
+   > git clone https://github.com/ziitar/visualizeMusicBackend.git && cd visualizeMusicBackend
+   ```
 
-3. 运行程序
+3. 在更目录下添加connect.json文件，文件内容如下
 
-```
-> deno run --allow-net --allow-read --allow-write --allow-run
-```
+   ```json
+   {
+     "host": "xxx",
+     "port": 3306, //defuat port
+     "user": "xxx",
+     "password": "xxx",
+     "dataBase": "xxx"
+   }
+   ```
+4. 执行初始化数据库命令
+
+   ```shell
+   # for linux
+   $ deno run --allow-net --allow-read --allow-run ./dbs/init_database.ts
+   ```
+   ```cmd
+   // for windows
+   > deno run --allow-net --allow-read --allow-run .\dbs\init_database.ts
+   ```
+   执行完毕就可以关闭命令行或者断开连接了。
+5. 运行程序
+
+   ```cmd
+   > deno run --allow-net --allow-read --allow-write --allow-run app.ts
+   ```

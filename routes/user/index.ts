@@ -32,6 +32,7 @@ router.get("/user", async (ctx, next) => {
   ctx.response.body = {
     code: 200,
     result: undefined,
+    status: 0,
     msg: "无用户信息",
   };
   await next();
