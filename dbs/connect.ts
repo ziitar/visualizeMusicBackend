@@ -3,7 +3,7 @@ import {
   MySQLConnector,
 } from "https://deno.land/x/denodb@v1.4.0/mod.ts";
 
-import connectInfo from "../connect.json" assert { type: "json" };
+import connectInfo from "../config/connect.json" assert { type: "json" };
 
 const connection = new MySQLConnector({
   host: connectInfo.host,

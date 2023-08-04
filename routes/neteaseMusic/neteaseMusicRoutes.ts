@@ -15,6 +15,7 @@ import {
   SongResultType,
   UserInfoType,
 } from "./typing.d.ts";
+import { setResponseBody } from "../../utils/util.ts";
 
 const router = new Router<{ session: Session }>();
 
@@ -36,17 +37,15 @@ async function resolve<
     }
     ctx.response.status = 200;
     ctx.response.body = res;
-    await next();
   } else {
     if (res.code > 0) {
       ctx.response.status = res.code;
-      await next();
     } else {
-      ctx.response.status = 502;
-      ctx.response.body = res;
-      await next();
+      ctx.response.status = 500;
     }
+    ctx.response.body = res;
   }
+  await next();
 }
 
 async function reject<
@@ -56,7 +55,7 @@ async function reject<
   S extends State = Record<string, any>,
 >(err: Error, ctx: RouterContext<R, P, S>, next: () => Promise<unknown>) {
   console.error(err);
-  ctx.response.status = 500;
+  setResponseBody(ctx, 500, undefined, err.message);
   await next();
 }
 
@@ -80,7 +79,7 @@ router.get("/search/:keywords", async (ctx, next) => {
       (err) => reject(err, ctx, next),
     );
   } else {
-    ctx.response.status = 400;
+    setResponseBody(ctx, 400, undefined);
     await next();
   }
 });
@@ -109,7 +108,7 @@ router.get("/musicUrl/:id", async (ctx, next) => {
       (err) => reject(err, ctx, next),
     );
   } else {
-    ctx.response.status = 400;
+    setResponseBody(ctx, 400, undefined);
     await next();
   }
 });
@@ -145,7 +144,7 @@ router.get("/musicUrl/v1/:id", async (ctx, next) => {
       (err) => reject(err, ctx, next),
     );
   } else {
-    ctx.response.status = 400;
+    setResponseBody(ctx, 400, undefined);
     await next();
   }
 });
@@ -177,7 +176,7 @@ router.get("/song/detail/:id", async (ctx, next) => {
       true,
     );
   } else {
-    ctx.response.status = 400;
+    setResponseBody(ctx, 400, undefined);
     await next();
   }
 });
@@ -200,7 +199,7 @@ router.get("/song/lyric/:id", async (ctx, next) => {
       (err) => reject(err, ctx, next),
     );
   } else {
-    ctx.response.status = 400;
+    setResponseBody(ctx, 400, undefined);
     await next();
   }
 });
@@ -219,7 +218,7 @@ router.get("/album/:id", async (ctx, next) => {
       (err) => reject(err, ctx, next),
     );
   } else {
-    ctx.response.status = 400;
+    setResponseBody(ctx, 400, undefined);
     await next();
   }
 });
@@ -244,7 +243,7 @@ router.post("/login", async (ctx, next) => {
       (err) => reject(err, ctx, next),
     );
   } else {
-    ctx.response.status = 400;
+    setResponseBody(ctx, 400, undefined);
     await next();
   }
 });

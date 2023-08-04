@@ -1,5 +1,9 @@
 import { db } from "./index.ts";
 
-db.sync({
+await db.sync({
   drop: true,
 });
+
+await db.close();
+
+Deno.exit();

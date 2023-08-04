@@ -1,70 +1,65 @@
-import {
-  getAudioDuration,
-  getCue,
-  getTracksDuration,
-  ItemType,
-  mapReadDir,
-  msToTime,
-} from "./utils.ts";
+import { formatFileName, ItemType, mapReadDir } from "./utils.ts";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
-import { t2s } from "./chinese-s2t/index.ts";
 import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
-
+import { filterInvalidValueForStore } from "../util.ts";
 export function getExtension(str: string) {
   return mime.getExtension(str);
 }
 
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
-export type SaveType = Omit<ItemType, "picture"> & {
-  picUrl: string;
-  duration?: string;
+export type TAndNull<T> = T extends undefined ? null : T;
+export type Nullable<T> = {
+  [P in keyof T]-?: TAndNull<T[P]>;
 };
+export type SaveType = Nullable<
+  Omit<ItemType, "picture" | "track" | "disk"> & {
+    picUrl: string;
+    trackNo?: number;
+    trackTotal?: number;
+    diskTotal?: number;
+    diskNo?: number;
+    start?: number;
+    bitrate?: number;
+  }
+>;
 export async function saveResult(path: string, exclude: string[]) {
   const result = await mapReadDir(path, exclude);
-  console.log("step 1", result.length);
   const saveArr: SaveType[] = [];
   for (const item of result) {
-    if (item.type === "single") {
-      let picUrl = "";
-      const title = t2s(item.title || "");
-      const album = t2s(item.album || "");
-      if (item.picture) {
-        try {
-          picUrl = denoPath.join(
-            __dirname,
-            "../../assets",
-            (album.replace(/[\\/:?''<>|]/g, "-")) +
-              getExtension(item.picture[0].format),
+    const {
+      type,
+      url,
+      picture,
+      title,
+      artist,
+      album,
+      albumartist,
+      year,
+      duration,
+      track,
+      disk,
+      lossless,
+      sampleRate,
+    } = item;
+    let picUrl = "";
+    try {
+      if (picture) {
+        picUrl = denoPath.join(
+          __dirname,
+          "../../assets",
+          `${album?.replace(/[\\/:?''<>|]/g, "_")}-${
+            albumartist?.replace(/[\\/:?''<>|]/g, "_")
+          }${getExtension(picture[0].format)}`,
+        );
+        const exist = await exists(picUrl);
+        if (!exist) {
+          await Deno.writeFile(
+            picUrl,
+            picture[0].data,
           );
-          const exist = await exists(picUrl);
-          if (!exist) {
-            await Deno.writeFile(
-              picUrl,
-              item.picture[0].data,
-            );
-          }
-        } catch (e) {
-          console.error("write img", e);
         }
-        delete item.picture;
-      }
-      const duration = await getAudioDuration(item.url);
-      saveArr.push({
-        title,
-        url: item.url,
-        artist: t2s(item.artist || ""),
-        album,
-        albumartist: t2s(item.albumartist || ""),
-        year: item.year,
-        type: item.type,
-        picUrl,
-        duration: duration ? msToTime(duration * 1000) : "",
-      });
-    } else {
-      const cueSheet = getCue(item.url);
-      if (cueSheet && cueSheet.files) {
-        let picUrl = "";
+      } else {
         const mb: string[] = [
           "Cover.jpg",
           "cover.jpg",
@@ -87,34 +82,43 @@ export async function saveResult(path: string, exclude: string[]) {
             denoPath.dirname(item.url),
             fileName || "",
           );
-          if (await exists(path) && denoPath.extname(path) !== "") {
-            picUrl = path;
-          }
-        }
-        for (const file of cueSheet.files) {
-          if (file.tracks) {
-            const audioFile = denoPath.join(
-              denoPath.dirname(item.url),
-              file.name || "",
+          if (await exists(path)) {
+            picUrl = denoPath.join(
+              __dirname,
+              "../../assets",
+              `${formatFileName(album)}-${formatFileName(albumartist)}${
+                denoPath.extname(path)
+              }`,
             );
-            const totalDuration = await getAudioDuration(audioFile);
-            const durations = getTracksDuration(file.tracks, totalDuration);
-            for (const [index, track] of file.tracks.entries()) {
-              saveArr.push({
-                ...item,
-                url: audioFile,
-                title: track.title,
-                artist: track.performer || cueSheet.performer,
-                album: cueSheet.title,
-                albumartist: cueSheet.performer,
-                picUrl,
-                duration: durations ? durations[index] : undefined,
-              });
+            const exist = await exists(picUrl);
+            if (!exist) {
+              await Deno.copyFile(path, picUrl);
             }
           }
         }
       }
+    } catch (e) {
+      console.error("write img", e);
     }
+    saveArr.push(filterInvalidValueForStore({
+      type,
+      url,
+      picUrl: `/assets/${denoPath.basename(picUrl)}`,
+      title,
+      artist,
+      album,
+      albumartist,
+      year,
+      duration,
+      trackNo: track.no || undefined,
+      trackTotal: track.of || undefined,
+      diskNo: disk.no || undefined,
+      diskTotal: disk.of || undefined,
+      lossless,
+      sampleRate,
+      start: item.type === "tracks" ? item.start : undefined,
+      bitrate: item.type === "single" ? item.bitrate : undefined,
+    }));
   }
   const textEncode = new TextEncoder();
   await Deno.writeFile(

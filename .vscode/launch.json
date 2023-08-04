@@ -5,12 +5,53 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Launch app",
+      "program": "${workspaceFolder}/app.ts",
+      "request": "launch",
+      "type": "node",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files\\deno\\deno.EXE",
+      "runtimeArgs": [
+        "run"
+      ]
+    },
+    {
+      "request": "launch",
+      "name": "Debug test utils",
+      "type": "node",
+      "program": "${workspaceFolder}/utils/music/",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files\\deno\\deno.EXE",
+      "runtimeArgs": [
+        "test",
+        "--unstable",
+        "--inspect-wait",
+        "--allow-all"
+      ],
+      "attachSimplePort": 9229
+    },
+    {
       "request": "launch",
       "name": "Debug Program",
       "type": "node",
       "program": "${workspaceFolder}/app.ts",
       "cwd": "${workspaceFolder}",
       "runtimeExecutable": "C:\\Program Files\\deno\\deno.EXE",
+      "runtimeArgs": [
+        "run",
+        "--unstable",
+        "--inspect-wait",
+        "--allow-all"
+      ],
+      "attachSimplePort": 9229
+    },
+    {
+      "request": "launch",
+      "name": "Debug with denon start",
+      "type": "node",
+      "program": "${workspaceFolder}/app.ts",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Users\\uziit\\.deno\\bin\\denon.cmd",
       "runtimeArgs": [
         "run",
         "--unstable",

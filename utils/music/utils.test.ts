@@ -2,7 +2,7 @@ import {
   assertEquals,
   assertNotEquals,
 } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { getAudioDuration, getCue, getID3, mapReadDir } from "./utils.ts";
+import { getCue, getID3, mapReadDir } from "./utils.ts";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { saveResult } from "./exec.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
@@ -11,14 +11,11 @@ const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
 Deno.test({
   name: "test cue parse",
   ignore: true,
-  fn: async () => {
+  fn: () => {
     const path =
-      "Y:\\林俊杰46专辑54CD\\2003-乐行者[内地首版][WAV]\\2003-乐行者[内地首版][WAV]\\林俊杰.-.[乐行者](2003)[WAV].cue";
+      "Y:\\林俊杰46专辑54CD\\2004-第二天堂[台湾版][WAV]\\2004-第二天堂[台湾版][WAV]\\林俊杰.-.[第二天堂](2004)[WAV].cue";
 
     const cueSheet = getCue(path);
-    const textEncode = new TextEncoder();
-    const uint8array = textEncode.encode(JSON.stringify(cueSheet));
-    await Deno.writeFile("./cueSheet.json", uint8array);
     if (cueSheet) {
       assertEquals(cueSheet.performer, "林俊杰");
       assertEquals(cueSheet.title, "乐行者 [内地版]");
@@ -39,13 +36,14 @@ Deno.test({
 
 Deno.test({
   name: "test getID3",
-  ignore: true,
+  ignore: false,
   fn: async () => {
-    const path = "Y:\\TRA$H\\ＷＡＩＴＩＮＧ\\ＷＡＩＴＩＮＧ.mp3";
-    const common = await getID3(path);
-    console.log(common);
-    if (common) {
-      assertEquals(common.title, "intro红");
+    const path =
+      "Y:\\Bad Bunny\\Un verano sin ti\\03 Bad Bunny & Chencho Corleone - Me porto bonito.flac";
+    const result = await getID3(path);
+    console.log(result);
+    if (result) {
+      assertEquals(result.common.title, "I Do");
     }
   },
 });
@@ -107,40 +105,6 @@ Deno.test({
     );
     const path = denoPath.join(__dirname, "result.json");
     assertEquals(await exists(path), true);
-  },
-});
-
-Deno.test({
-  name: "test getAudioDuration with wav",
-  ignore: true,
-  fn: async () => {
-    const path =
-      "Y:\\陈奕迅63专辑\\2000 陈奕迅.林子祥.-.[拉阔压轴林子祥.&.陈奕迅演唱会].专辑.(APE)\\陈奕迅.林子祥.-.[拉阔压轴林子祥.&.陈奕迅演唱会CD1].专辑.(APE).ape";
-    const duration = await getAudioDuration(path);
-    console.log(duration);
-    assertEquals(typeof duration, "number");
-  },
-});
-
-Deno.test({
-  name: "test getAudioDuration with mp3",
-  ignore: true,
-  fn: async () => {
-    const path = "Y:\\A Fine Frenzy\\One Cell in the Sea\\06 Almost Lover.mp3";
-    const duration = await getAudioDuration(path);
-    console.log(duration);
-    assertEquals(typeof duration, "number");
-  },
-});
-
-Deno.test({
-  name: "test getAudioDuration with flac",
-  ignore: true,
-  fn: async () => {
-    const path = "Y:\\周杰伦\\1.JAY\\印第安老斑鸠.flac";
-    const duration = await getAudioDuration(path);
-    console.log(duration);
-    assertEquals(typeof duration, "number");
   },
 });
 

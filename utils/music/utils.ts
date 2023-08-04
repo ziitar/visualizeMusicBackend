@@ -1,7 +1,6 @@
 import { parse } from "https://esm.sh/cue-parser@0.3.0";
 import * as musicMeta from "https://esm.sh/music-metadata@8.1.4";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
-import config from "../../config.json" assert { type: "json" };
 
 export function msToTime(duration: number): string {
   const seconds = Math.floor((duration / 1000) % 60),
@@ -16,34 +15,9 @@ export function msToTime(duration: number): string {
       .padStart(2, "0")
   }`;
 }
-
-export async function getAudioDuration(path: string) {
-  const command = new Deno.Command(config.ffprobePath, {
-    args: [
-      "-v",
-      "error",
-      "-select_streams",
-      "a:0",
-      "-show_format",
-      "-show_streams",
-      path,
-    ],
-  });
-  const { code, stdout, stderr } = await command.output();
-  const textDecode = new TextDecoder();
-  const out = textDecode.decode(stdout);
-  const err = textDecode.decode(stderr);
-  if (err) {
-    console.error("getAudioDuration", err);
-  }
-  if (code === 0) {
-    const matched = out.match(/duration="?(\d*)\.\d*"?/);
-    if (matched && matched[1]) {
-      return parseFloat(matched[1]);
-    }
-  }
+export function formatFileName(name?: string) {
+  return name?.replace(/[\\/:?''<>|]/g, "_");
 }
-
 export function getTracksDuration(
   tracks: Tracks,
   totalDuration: number | undefined,
@@ -90,19 +64,38 @@ export function getCue(path: string) {
     console.error("getCue", e);
   }
 }
-
-export async function getID3(path: string) {
+type IAudioMetadata = ReturnType<typeof musicMeta.parseBuffer>;
+export async function getID3(
+  path: string,
+): Promise<IAudioMetadata | undefined> {
   try {
     const data = await Deno.readFile(path);
-    const { common } = await musicMeta.parseBuffer(data);
-    return common;
+    const result = await musicMeta.parseBuffer(data);
+    return result;
   } catch (e) {
     console.error("getID3", e);
   }
 }
+export type ItemType = TrackItemType | SingleItemType;
 
-export interface ItemType {
-  type: "tracks" | "single";
+interface TrackItemType extends BaseItemType {
+  type: "tracks";
+  start: number;
+}
+interface SingleItemType extends BaseItemType {
+  type: "single";
+  bitrate?: number;
+}
+interface BaseItemType {
+  track: {
+    no: number | null;
+    of: number | null;
+  };
+  disk: {
+    no: number | null;
+    of: number | null;
+  };
+  lossless?: boolean;
   url: string;
   title?: string;
   artist?: string;
@@ -110,7 +103,10 @@ export interface ItemType {
   albumartist?: string;
   year?: number;
   picture?: musicMeta.IPicture[];
+  duration?: string;
+  sampleRate?: number;
 }
+
 export async function mapReadDir(
   path: string,
   exclude: string[],
@@ -147,21 +143,67 @@ export async function mapReadDir(
               result = result.filter((item) =>
                 !referenceFiles.includes(denoPath.basename(item.url))
               );
-              result.push({
-                type: "tracks",
-                url: denoPath.join(path, file.name),
-              });
+              for (const file of cueSheet.files) {
+                if (file.tracks) {
+                  const audioFile = denoPath.join(
+                    path,
+                    file.name || "",
+                  );
+                  const id3 = await getID3(audioFile);
+                  const durations = getTracksDuration(
+                    file.tracks,
+                    id3?.format.duration,
+                  );
+                  for (const [index, track] of file.tracks.entries()) {
+                    let startTime: number = 0;
+                    if (track.indexes) {
+                      const timeMap =
+                        track.indexes[track.indexes.length - 1].time;
+                      startTime = parseFloat(
+                        `${timeMap.min * 60 + timeMap.sec}.${timeMap.frame}`,
+                      );
+                    }
+                    result.push({
+                      ...id3?.format,
+                      ...id3?.common,
+                      type: "tracks",
+                      url: audioFile,
+                      title: track.title,
+                      artist: track.performer || cueSheet.performer ||
+                        id3?.common.albumartist,
+                      album: cueSheet.title,
+                      albumartist: cueSheet.performer ||
+                        id3?.common.albumartist,
+                      duration: durations ? durations[index] : undefined,
+                      track: {
+                        no: index,
+                        of: file.tracks.length,
+                      },
+                      disk: id3 ? id3.common.disk : { no: null, of: null },
+                      start: startTime,
+                    });
+                  }
+                }
+              }
             }
           } catch (e) {
             console.error(e, path, file.name);
           }
         } else {
-          const id3 = await getID3(denoPath.join(path, file.name));
-          result.push({
-            type: "single",
-            url: denoPath.join(path, file.name),
-            ...id3,
-          });
+          const id3Result = await getID3(denoPath.join(path, file.name));
+          if (id3Result) {
+            let duration = "";
+            if (id3Result.format.duration) {
+              duration = msToTime(id3Result.format.duration * 1000);
+            }
+            result.push({
+              type: "single",
+              url: denoPath.join(path, file.name),
+              ...id3Result.common,
+              ...id3Result.format,
+              duration,
+            });
+          }
         }
       }
     }
