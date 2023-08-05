@@ -1,4 +1,4 @@
-import { Router } from "https://deno.land/x/oak@v12.2.0/mod.ts";
+import { helpers, Router } from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import * as path from "https://deno.land/std@0.184.0/path/mod.ts";
 import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import { parseRange } from "https://deno.land/x/oak@v12.2.0/range.ts";
@@ -66,4 +66,43 @@ router.get("/proxy/:url", async (ctx, next) => {
   res.close();
   await next();
 });
+
+router.get("/tracks/:url", async (ctx, next) => {
+  let url = await ctx.params.url;
+  const { duration, start, bitrate, lossless } = helpers.getQuery(ctx);
+  url = formatUrl(url);
+  const filePath = path.join(config.source, url);
+  let args: string[] = [];
+  if (bitrate) {
+    args = args.concat("-ab", bitrate);
+  }
+  if (lossless) {
+    args = args.concat("-f", "flac");
+  } else {
+    args = args.concat("-f", "mp3");
+  }
+  const cmd = new Deno.Command(config.ffmpegPath, {
+    args: [
+      "-ss",
+      start,
+      "-t",
+      duration,
+      "-i",
+      filePath,
+      ...args,
+      "pipe:1",
+    ],
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const child = cmd.spawn();
+  const { stderr, stdout } = await child.output();
+  if (stderr) {
+    console.error(new TextDecoder().decode(stderr));
+  }
+  ctx.response.body = stdout;
+  ctx.response.status = 200;
+  await next();
+});
+
 export default router;

@@ -7,7 +7,7 @@ EXPOSE 7000
 
 WORKDIR /app
 
-VOLUME [ "/app/assets", "/app/config" ]
+VOLUME [ "/app/config", "/etc/source" ]
 
 ENV TZ="Asia/shanghai"
 
