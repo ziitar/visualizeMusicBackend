@@ -35,7 +35,7 @@ router.post("/", async (ctx, next) => {
 router.get("/", async (ctx, next) => {
   const userId = await ctx.state.session?.get("userId") as number;
   const userSheets = await Sheet.where("userId", userId).get();
-  setResponseBody(ctx, 200, userSheets, "创建成功");
+  setResponseBody(ctx, 200, userSheets);
   await next();
 });
 

@@ -18,6 +18,9 @@ export function msToTime(duration: number): string {
 export function formatFileName(name?: string) {
   return name?.replace(/[\\/:?''<>|]/g, "_");
 }
+export function splitArtist(str?: string) {
+  return str?.replace(/\s?([,\/\&])\s?/, "$1").split(/\B[,\/&]\B/) || [];
+}
 export function getTracksDuration(
   tracks: Tracks,
   totalDuration: number | undefined,
@@ -70,8 +73,7 @@ export async function getID3(
 ): Promise<IAudioMetadata | undefined> {
   try {
     const data = await Deno.readFile(path);
-    const result = await musicMeta.parseBuffer(data);
-    return result;
+    return await musicMeta.parseBuffer(data);
   } catch (e) {
     console.error("getID3", e);
   }
@@ -176,7 +178,7 @@ export async function mapReadDir(
                         id3?.common.albumartist,
                       duration: durations ? durations[index] : undefined,
                       track: {
-                        no: index,
+                        no: index + 1,
                         of: file.tracks.length,
                       },
                       disk: id3 ? id3.common.disk : { no: null, of: null },

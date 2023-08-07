@@ -48,9 +48,9 @@ export async function saveResult(path: string, exclude: string[]) {
         picUrl = denoPath.join(
           __dirname,
           "../../assets",
-          `${album?.replace(/[\\/:?''<>|]/g, "_")}-${
-            albumartist?.replace(/[\\/:?''<>|]/g, "_")
-          }${getExtension(picture[0].format)}`,
+          `${formatFileName(album)}-${formatFileName(albumartist || artist)}.${
+            getExtension(picture[0].format)
+          }`,
         );
         const exist = await exists(picUrl);
         if (!exist) {
@@ -86,9 +86,9 @@ export async function saveResult(path: string, exclude: string[]) {
             picUrl = denoPath.join(
               __dirname,
               "../../assets",
-              `${formatFileName(album)}-${formatFileName(albumartist)}${
-                denoPath.extname(path)
-              }`,
+              `${formatFileName(album)}-${
+                formatFileName(albumartist || artist)
+              }${denoPath.extname(path)}`,
             );
             const exist = await exists(picUrl);
             if (!exist) {
@@ -107,7 +107,7 @@ export async function saveResult(path: string, exclude: string[]) {
       title,
       artist,
       album,
-      albumartist,
+      albumartist: albumartist || artist,
       year,
       duration,
       trackNo: track.no || undefined,

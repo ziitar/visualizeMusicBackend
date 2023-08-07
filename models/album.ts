@@ -1,42 +1,39 @@
 import { DataTypes, Model } from "https://deno.land/x/denodb@v1.4.0/mod.ts";
 
-class Song extends Model {
-  static table = "song";
+class Album extends Model {
+  static table = "album";
 
   static timestamps = true;
 
   static fields = {
     id: {
       type: DataTypes.INTEGER,
-      autoIncrement: true,
       primaryKey: true,
+      autoIncrement: true,
       allowNull: false,
     },
-    type: DataTypes.enum(["single", "tracks"]),
-    url: DataTypes.STRING,
-    title: DataTypes.STRING,
-    duration: DataTypes.STRING,
-    trackNo: {
+    name: DataTypes.STRING,
+    image: {
       type: DataTypes.STRING,
       allowNull: true,
     },
-    lossless: {
-      type: DataTypes.BOOLEAN,
+    trackTotal: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
-    sampleRate: {
-      type: DataTypes.STRING,
+    diskTotal: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
-    start: {
-      type: DataTypes.FLOAT,
+    diskNo: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
-    bitrate: {
+    year: {
       type: DataTypes.INTEGER,
       allowNull: true,
     },
   };
 }
 
-export default Song;
+export default Album;

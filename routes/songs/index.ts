@@ -1,25 +1,135 @@
-import { Song } from "../../dbs/index.ts";
+import {
+  Album,
+  AlbumArtist,
+  Artist,
+  db,
+  Song,
+  SongArtist,
+  SongSheet,
+} from "../../dbs/index.ts";
 import { helpers, Router } from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
-import { getExtension, saveResult } from "../../utils/music/exec.ts";
+import { getExtension, saveResult, SaveType } from "../../utils/music/exec.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
-import { formatFileName } from "../../utils/music/utils.ts";
+import { formatFileName, splitArtist } from "../../utils/music/utils.ts";
 import { setResponseBody } from "../../utils/util.ts";
 import config from "../../config/config.json" assert { type: "json" };
-interface SaveType {
-  [key: string]: any;
-  type: "tracks" | "single";
-  url: string;
-  title?: string;
-  artist?: string;
-  album?: string;
-  albumartist?: string;
-  year?: number;
-  picUrl: string;
-  duration?: string;
-}
+import { FieldValue } from "https://deno.land/x/denodb@v1.4.0/lib/data-types.ts";
+
 const router = new Router();
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
+
+async function createSong(
+  song: SaveType,
+  albumId: FieldValue,
+  artistIds: FieldValue[],
+) {
+  const {
+    type,
+    url,
+    title,
+    duration,
+    trackNo,
+    lossless,
+    sampleRate,
+    start,
+    bitrate,
+  } = song;
+  const songModel = await Song.create({
+    type,
+    url,
+    title,
+    duration,
+    trackNo,
+    lossless,
+    sampleRate,
+    start,
+    bitrate,
+    albumId,
+  });
+  for await (const artistId of artistIds) {
+    await SongArtist.create({
+      songId: songModel.lastInsertId as FieldValue,
+      artistId: artistId,
+    });
+  }
+}
+async function storeSong(songs: SaveType[]) {
+  for await (const song of songs) {
+    const {
+      type,
+      artist,
+      album,
+      albumartist,
+      year,
+      trackTotal,
+      diskNo,
+      diskTotal,
+      picUrl,
+    } = song;
+    const albumartistList = splitArtist(albumartist || artist || undefined);
+    const artistModels = await Promise.all(
+      albumartistList.map(async (artist) => {
+        const albumartists = await Artist.where("name", artist).first();
+        if (albumartists) {
+          return albumartists;
+        } else {
+          return await Artist.create({ name: artist });
+        }
+      }),
+    );
+    let albumModel = await Album.where("name", album).first();
+    if (
+      !albumModel || (type === "tracks" && diskTotal && diskTotal > 1 &&
+        diskNo != albumModel.diskNo)
+    ) {
+      albumModel = await Album.create({
+        name: album,
+        image: picUrl,
+        trackTotal: trackTotal,
+        diskNo,
+        diskTotal,
+        year,
+      });
+    }
+    await Promise.all(
+      artistModels.map(async (artistModel) => {
+        const albumArtistModel = await AlbumArtist.where({
+          albumId: albumModel.id as FieldValue ||
+            albumModel.lastInsertId as FieldValue,
+          artistId: artistModel.id as FieldValue ||
+            artistModel.lastInsertId as FieldValue,
+        }).first();
+        if (!albumArtistModel) {
+          await AlbumArtist.create({
+            albumId: albumModel.id as FieldValue ||
+              albumModel.lastInsertId as FieldValue,
+            artistId: artistModel.id as FieldValue ||
+              artistModel.lastInsertId as FieldValue,
+          });
+        }
+      }),
+    );
+    const artistList = splitArtist(artist || undefined);
+    const artistModels_2 = await Promise.all(
+      artistList.map(async (artist) => {
+        const artists = await Artist.where("name", artist).first();
+        if (artists) {
+          return artists;
+        } else {
+          return await Artist.create({ name: artist });
+        }
+      }),
+    );
+    await createSong(
+      song,
+      albumModel.id as FieldValue || albumModel.lastInsertId as FieldValue,
+      artistModels_2.map((item) =>
+        item.id as FieldValue || item.lastInsertId as FieldValue
+      ),
+    );
+  }
+}
 router.put("/store", async (ctx, next) => {
   await saveResult(config.source, config.exclude);
   const result = await Deno.readFile(
@@ -28,7 +138,7 @@ router.put("/store", async (ctx, next) => {
   const localMusicData = JSON.parse(
     new TextDecoder().decode(result),
   ) as SaveType[];
-  await Song.create(
+  await storeSong(
     localMusicData,
   );
   setResponseBody(ctx, 200, true, "创建成功");
@@ -41,8 +151,52 @@ router.get("/", async (ctx, next) => {
   await next();
 });
 
+router.get("/all", async (ctx, next) => {
+  const artist = await Artist.select(
+    Artist.field("name", "albummartist"),
+    Artist.field("id", "albummartistId"),
+  ).all();
+  const result = await Promise.all(artist.map(async (albummartist) => {
+    const albums = await AlbumArtist.where(
+      AlbumArtist.field("artist_id"),
+      albummartist.albummartistId as FieldValue,
+    ).join(Album, Album.field("id"), AlbumArtist.field("album_id")).all();
+    const albumSong = await Promise.all(albums.map(async (album) => {
+      const songs = await Song.where(
+        Song.field("album_id"),
+        album.id as FieldValue,
+      ).all();
+      const songArtist = await Promise.all(songs.map(async (song) => {
+        const artist = await SongArtist.where(
+          SongArtist.field("song_id"),
+          song.id as FieldValue,
+        ).join(
+          Artist,
+          Artist.field("id"),
+          SongArtist.field("artist_id"),
+        ).select(Artist.field("name")).all();
+        return {
+          ...song,
+          artist: artist.map((item) => item.name),
+        };
+      }));
+      return {
+        album: album,
+        songs: songArtist,
+      };
+    }));
+
+    return {
+      albums: albumSong,
+      albummartist: albummartist.albummartist,
+    };
+  }));
+  setResponseBody(ctx, 200, result);
+  await next();
+});
+
 router.get("/search", async (ctx, next) => {
-  const { title, artist } = helpers.getQuery(ctx);
+  const { title, artist, album, albumartist } = helpers.getQuery(ctx);
   let result;
   if (title) {
     result = await Song.where("title", "like", `%${title}%`);
@@ -53,6 +207,9 @@ router.get("/search", async (ctx, next) => {
     } else {
       result = await Song.where("artist", "like", `%${artist}%`);
     }
+  }
+  if (album) {
+    //todo
   }
   if (result) {
     result = await result.all();
@@ -79,8 +236,8 @@ router.post("/create", async (ctx, next) => {
     trackTotal,
     diskNo,
     diskTotal,
-    lossles,
-    sampleRat,
+    lossless,
+    sampleRate,
     start,
     bitrate,
   } = formData.fields;
@@ -109,25 +266,25 @@ router.post("/create", async (ctx, next) => {
       }
       picUrl = `/assets/${picName}`;
     }
-    await Song.create({
+    await storeSong([{
       type,
       url,
       title,
       artist,
       album,
       albumartist,
-      year,
+      year: year ? parseInt(year) : null,
       duration,
-      trackNo,
-      trackTotal,
-      diskNo,
-      diskTotal,
-      lossles,
-      sampleRat,
-      start,
-      bitrate,
+      trackNo: trackNo ? parseInt(trackNo) : null,
+      trackTotal: trackTotal ? parseInt(trackTotal) : null,
+      diskNo: diskNo ? parseInt(diskNo) : null,
+      diskTotal: diskTotal ? parseInt(diskTotal) : null,
+      lossless: !!lossless,
+      sampleRate: sampleRate ? parseInt(sampleRate) : null,
+      start: start ? parseInt(start) : null,
+      bitrate: bitrate ? parseInt(bitrate) : null,
       picUrl: picUrl || "",
-    });
+    } as SaveType]);
     setResponseBody(ctx, 200, true, "创建成功");
   }
   await next();
@@ -137,7 +294,11 @@ router.delete("/:id", async (ctx, next) => {
   const id = ctx.params.id;
   const exsit = await Song.find(id);
   if (exsit) {
-    await exsit.delete();
+    await db.transaction(async () => {
+      await exsit.delete();
+      await SongArtist.where("songId", id).delete();
+      await SongSheet.where("songId", id).delete();
+    });
     setResponseBody(ctx, 200, true, "删除成功");
   } else {
     setResponseBody(ctx, 400, false, 0, "没有此id");

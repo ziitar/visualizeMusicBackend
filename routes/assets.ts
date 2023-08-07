@@ -3,8 +3,10 @@ import * as path from "https://deno.land/std@0.184.0/path/mod.ts";
 import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import { parseRange } from "https://deno.land/x/oak@v12.2.0/range.ts";
 import { calculate } from "https://deno.land/x/oak@v12.2.0/etag.ts";
-import { formatUrl } from "../utils/util.ts";
+import { formatUrl, setResponseBody } from "../utils/util.ts";
 import config from "../config/config.json" assert { type: "json" };
+import { formatFileName } from "../utils/music/utils.ts";
+import { getExtension } from "../utils/music/exec.ts";
 
 const __dirname = path.dirname(path.fromFileUrl(import.meta.url));
 const router = new Router();
@@ -15,6 +17,32 @@ router.get("/:url", async (ctx, next) => {
   const uint8Array = await Deno.readFile(filePath);
   ctx.response.body = uint8Array;
   ctx.response.status = 200;
+  await next();
+});
+
+router.put("/upload", async (ctx, next) => {
+  const formDataReader = await ctx.request.body({ type: "form-data" }).value;
+  const formData = await formDataReader.read();
+  const files = formData.files;
+  if (files) {
+    for await (const file of files) {
+      if (file.content) {
+        let url: string | undefined;
+        if (file.filename) {
+          url = formatFileName(formatUrl(file.filename));
+        } else if (file.originalName) {
+          url = formatFileName(
+            formatUrl(`${file.name}.${getExtension(file.contentType)}`),
+          );
+        } else {
+          url = formatFileName(formatUrl(`${file.originalName}`));
+        }
+        const filePath = path.join(__dirname, `../assets/${url}`);
+        await Deno.writeFile(filePath, file.content);
+      }
+    }
+  }
+  setResponseBody(ctx, 200, undefined);
   await next();
 });
 
