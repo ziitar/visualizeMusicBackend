@@ -1,12 +1,17 @@
-import { helpers, Router } from "https://deno.land/x/oak@v12.2.0/mod.ts";
+import {
+  helpers,
+  Router,
+  RouterMiddleware,
+} from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import * as path from "https://deno.land/std@0.184.0/path/mod.ts";
 import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import { parseRange } from "https://deno.land/x/oak@v12.2.0/range.ts";
 import { calculate } from "https://deno.land/x/oak@v12.2.0/etag.ts";
-import { formatUrl, setResponseBody } from "../utils/util.ts";
+import { formatUrl, limitRange, setResponseBody } from "../utils/util.ts";
 import config from "../config/config.json" assert { type: "json" };
 import { formatFileName } from "../utils/music/utils.ts";
 import { getExtension } from "../utils/music/exec.ts";
+import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
 
 const __dirname = path.dirname(path.fromFileUrl(import.meta.url));
 const router = new Router();
@@ -46,10 +51,13 @@ router.put("/upload", async (ctx, next) => {
   await next();
 });
 
-router.get("/proxy/:url", async (ctx, next) => {
-  let url = await ctx.params.url;
-  url = formatUrl(url);
-  const res = await Deno.open(path.join(config.source, url), { read: true });
+const getResource: RouterMiddleware<
+  string,
+  Record<string, any>,
+  { url: string }
+> = async (ctx, next) => {
+  const url = ctx.state.url;
+  const res = await Deno.open(url, { read: true });
   const fileInfo = await res.stat();
   const range = ctx.request.headers.get("Range");
   const contentType = mime.getType(url);
@@ -59,7 +67,7 @@ router.get("/proxy/:url", async (ctx, next) => {
       fileInfo.size,
     );
     if (ranges.length <= 1) {
-      const byteRange = ranges[0];
+      const byteRange = limitRange(ranges[0], 3);
       const uint8Array = new Uint8Array(byteRange.end - byteRange.start + 1);
       await Deno.seek(res.rid, byteRange.start, Deno.SeekMode.Start);
       await res.read(uint8Array);
@@ -93,44 +101,80 @@ router.get("/proxy/:url", async (ctx, next) => {
   }
   res.close();
   await next();
-});
+};
 
-router.get("/tracks/:url", async (ctx, next) => {
+router.get("/proxy/:url", async (ctx, next) => {
   let url = await ctx.params.url;
-  const { duration, start, bitrate, lossless } = helpers.getQuery(ctx);
   url = formatUrl(url);
-  const filePath = path.join(config.source, url);
-  let args: string[] = [];
-  if (bitrate) {
-    args = args.concat("-ab", bitrate);
-  }
-  if (lossless) {
-    args = args.concat("-f", "flac");
-  } else {
-    args = args.concat("-f", "mp3");
-  }
-  const cmd = new Deno.Command(config.ffmpegPath, {
-    args: [
-      "-ss",
-      start,
-      "-t",
-      duration,
-      "-i",
-      filePath,
-      ...args,
-      "pipe:1",
-    ],
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const child = cmd.spawn();
-  const { stderr, stdout } = await child.output();
-  if (stderr) {
-    console.error(new TextDecoder().decode(stderr));
-  }
-  ctx.response.body = stdout;
-  ctx.response.status = 200;
+  url = path.join(config.source, url);
+  ctx.state.url = url;
   await next();
-});
+}, getResource);
+
+router.get("/decode/:url", async (ctx, next) => {
+  const {
+    duration,
+    start,
+    bitrate,
+    lossless: losslessStr,
+    type,
+    title,
+    album,
+    artist,
+  } = helpers.getQuery(ctx);
+  const lossless = losslessStr && JSON.parse(losslessStr);
+  if (type === "single" && lossless) {
+    let url = await ctx.params.url;
+    url = formatUrl(url);
+    ctx.state.url = path.join(config.source, url);
+    await next();
+  } else {
+    const fileName = `${formatFileName(album)}-${formatFileName(title)}-${
+      formatFileName(artist)
+    }${bitrate ? "-" + bitrate : ""}.${lossless ? "flac" : "mp3"}`;
+    const fileTmp = path.join(__dirname, "../tmp", fileName);
+    if (!await exists(fileTmp)) {
+      let url = await ctx.params.url;
+      url = formatUrl(url);
+      const filePath = path.join(config.source, url);
+      let args: string[] = [];
+      let trackArgs: string[] = [];
+      if (type === "tracks") {
+        trackArgs = [
+          "-ss",
+          start,
+          "-t",
+          duration,
+        ];
+      }
+      if (lossless) {
+        args = args.concat(
+          "-f",
+          "flac",
+        );
+      } else {
+        if (bitrate) {
+          args = args.concat("-ab", bitrate);
+        }
+        args = args.concat("-f", "mp3");
+      }
+      const cmd = new Deno.Command(config.ffmpegPath, {
+        args: [
+          ...trackArgs,
+          "-i",
+          filePath,
+          ...args,
+          fileTmp,
+        ],
+      });
+      const { stderr, stdout } = await cmd.output();
+      const encode = new TextDecoder();
+      console.log(encode.decode(stdout));
+      console.error(encode.decode(stderr));
+    }
+    ctx.state.url = fileTmp;
+    await next();
+  }
+}, getResource);
 
 export default router;

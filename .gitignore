@@ -1,3 +1,4 @@
-config/
-assets/
+config/*
+assets/*
+tmp/*
 utils/music/result.json

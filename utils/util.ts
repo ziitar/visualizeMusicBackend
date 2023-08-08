@@ -1,29 +1,33 @@
 import { Nullable, TAndNull } from "./music/exec.ts";
-import { Context, State } from "https://deno.land/x/oak@v12.2.0/mod.ts";
+import {
+  ByteRange,
+  Context,
+  State,
+} from "https://deno.land/x/oak@v12.2.0/mod.ts";
 export function isObj<
-  T extends Record<string | number, any>,
+  T extends object,
 >(
-  obj: any,
+  obj: unknown,
 ): obj is T {
-  return /^\[object\sObject\]$/.test(Object.prototype.toString.call(obj));
+  return /^\[object\s/.test(Object.prototype.toString.call(obj));
 }
 
-export function isStr(str: any): str is string {
+export function isStr(str: unknown): str is string {
   return typeof str === "string";
 }
 type EmptyOrNull = undefined | null | "";
-export function isEmptyOrNull(v: any): v is EmptyOrNull {
+export function isEmptyOrNull(v: unknown): v is EmptyOrNull {
   // 判断字符串是否为空
   return typeof v === "undefined" || v === "" || v === null ? true : false;
 }
 // 判断一个对象是否为空
-export function isEmptyObject(obj: { [key: string]: any }): boolean {
+export function isEmptyObject(obj: object): boolean {
   for (const i in obj) {
     return false;
   }
   return true;
 }
-export function isTrulyValue(v: any): boolean {
+export function isTrulyValue(v: unknown): boolean {
   if (v === 0) {
     return true;
   } else {
@@ -31,17 +35,17 @@ export function isTrulyValue(v: any): boolean {
   }
 }
 
-export function isTrulyArg(...v: any[]): boolean {
+export function isTrulyArg(...v: unknown[]): boolean {
   return v.every((item) => isTrulyValue(item));
 }
 
 /**
  * 判定表单有效值(指除了 undefined null '' [] {} 之外的值为有效值)
- *   @param {undefined |null | string | number | Array<any> | object} value 待判定值
+ *   @param {undefined |null | string | number | Array | object} value 待判定值
  *   @param {boolean} isStrict 是否是严格模式
  */
 export function hasFormItemValue(
-  value: undefined | null | string | number | Array<any> | object,
+  value: undefined | null | string | number | Array<unknown> | object,
   isStrict = false,
 ): boolean {
   if (!isEmptyOrNull(value)) {
@@ -53,7 +57,7 @@ export function hasFormItemValue(
         return !!value.length;
       }
     }
-    if (typeof value === "object") {
+    if (isObj(value)) {
       return isEmptyObject(value);
     }
     return true;
@@ -133,4 +137,15 @@ export function formatUrl(url: string) {
     exec = reg.test(url);
   }
   return url;
+}
+
+export function limitRange(range: ByteRange, limit: number): ByteRange {
+  const limitValue = limit * 1024 * 1024;
+  if (range.end - range.start + 1 > limitValue) {
+    return {
+      start: range.start,
+      end: range.start + limitValue,
+    };
+  }
+  return range;
 }

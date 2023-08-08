@@ -15,6 +15,7 @@ import { formatFileName, splitArtist } from "../../utils/music/utils.ts";
 import { setResponseBody } from "../../utils/util.ts";
 import config from "../../config/config.json" assert { type: "json" };
 import { FieldValue } from "https://deno.land/x/denodb@v1.4.0/lib/data-types.ts";
+import { Model } from "https://deno.land/x/denodb@v1.4.0/mod.ts";
 
 const router = new Router();
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
@@ -151,8 +152,29 @@ router.get("/", async (ctx, next) => {
   await next();
 });
 
+async function getSongsArtist(songs: Model[]) {
+  return await Promise.all(songs.map(async (song) => {
+    const artist = await SongArtist.where(
+      SongArtist.field("song_id"),
+      song.id as FieldValue,
+    ).join(
+      Artist,
+      Artist.field("id"),
+      SongArtist.field("artist_id"),
+    ).select(Artist.field("name")).all();
+    return {
+      ...song,
+      artist: artist.map((item) => item.name),
+    };
+  }));
+}
+
 router.get("/all", async (ctx, next) => {
-  const artist = await Artist.select(
+  const artist = await AlbumArtist.groupBy(AlbumArtist.field("artist_id")).join(
+    Artist,
+    Artist.field("id"),
+    AlbumArtist.field("artist_id"),
+  ).select(
     Artist.field("name", "albummartist"),
     Artist.field("id", "albummartistId"),
   ).all();
@@ -166,20 +188,7 @@ router.get("/all", async (ctx, next) => {
         Song.field("album_id"),
         album.id as FieldValue,
       ).all();
-      const songArtist = await Promise.all(songs.map(async (song) => {
-        const artist = await SongArtist.where(
-          SongArtist.field("song_id"),
-          song.id as FieldValue,
-        ).join(
-          Artist,
-          Artist.field("id"),
-          SongArtist.field("artist_id"),
-        ).select(Artist.field("name")).all();
-        return {
-          ...song,
-          artist: artist.map((item) => item.name),
-        };
-      }));
+      const songArtist = getSongsArtist(songs);
       return {
         album: album,
         songs: songArtist,
@@ -196,26 +205,60 @@ router.get("/all", async (ctx, next) => {
 });
 
 router.get("/search", async (ctx, next) => {
-  const { title, artist, album, albumartist } = helpers.getQuery(ctx);
-  let result;
-  if (title) {
-    result = await Song.where("title", "like", `%${title}%`);
-  }
+  const { title, artist, album } = helpers.getQuery(ctx);
+  let songs, artists, albums, result;
+
   if (artist) {
-    if (result) {
-      result = await result.where("artist", "like", `%${artist}%`);
-    } else {
-      result = await Song.where("artist", "like", `%${artist}%`);
-    }
+    artists = await Artist.where("name", "like", `%${artist}%`).all();
   }
   if (album) {
-    //todo
+    albums = await Album.where("name", "like", `%${album}%`);
+
+    if (artists) {
+      const artistAlbums = (await Promise.all(artists.map(async (artist) => {
+        return await AlbumArtist.where(
+          "artist_id",
+          artist.id as FieldValue,
+        )
+          .all();
+      }))).flat().map((item) => item.albumId as FieldValue);
+      for (const artistAlbum of artistAlbums) {
+        albums = albums.where(Album.field("id"), artistAlbum);
+      }
+    }
+    albums = await albums.all();
   }
-  if (result) {
-    result = await result.all();
+  if (title) {
+    songs = Song.where("title", "like", `%${title}%`);
   } else {
-    result = await Song.all();
+    songs = Song;
   }
+  if (albums) {
+    for (const album of albums) {
+      songs = songs.where(Song.field("album_id"), album.id as FieldValue);
+    }
+  }
+  if (artists && !albums) {
+    let songArtist = SongArtist;
+    for (const artist of artists) {
+      songArtist = songArtist.where(
+        SongArtist.field("artist_id"),
+        artist.id as FieldValue,
+      );
+    }
+    const limitSongId = await songArtist.all();
+    for (const song of limitSongId) { //todo 只有最后一个where起作用
+      songs = songs.where(Song.field("id"), song.songId as FieldValue);
+    }
+  }
+  result = await songs.join(Album, Album.field("id"), Song.field("album_id"))
+    .select(
+      Album.field("name", "album"),
+      Song.field("id"),
+      ...Object.keys(Song.fields).filter((item) => item !== "id"),
+    )
+    .all();
+  result = await getSongsArtist(result);
   setResponseBody(ctx, 200, result, "查询成功");
   await next();
 });

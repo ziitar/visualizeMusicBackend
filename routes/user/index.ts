@@ -46,7 +46,7 @@ router.post("/register", async (ctx, next) => {
         password,
         email,
       });
-      ctx.state.session.set("userId", user.id);
+      ctx.state.session.set("userId", user.lastInsertId);
       setResponseBody(ctx, 200, {
         ...user,
         password: undefined,
