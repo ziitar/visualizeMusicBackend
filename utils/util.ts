@@ -9,7 +9,7 @@ export function isObj<
 >(
   obj: unknown,
 ): obj is T {
-  return /^\[object\s/.test(Object.prototype.toString.call(obj));
+  return /^\[object\sObject\]$/.test(Object.prototype.toString.call(obj));
 }
 
 export function isStr(str: unknown): str is string {

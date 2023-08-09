@@ -287,9 +287,9 @@ router.post("/create", async (ctx, next) => {
   if (title && url && album && type && duration) {
     if (picData && picData.length) {
       const picFile = picData[0];
-      const picName = `${formatFileName(album)}-${formatFileName(albumartist)}${
-        getExtension(picFile.contentType)
-      }`;
+      const picName = `${formatFileName(album)}-${
+        formatFileName(albumartist)
+      }.${getExtension(picFile.contentType)}`;
       picUrl = denoPath.join(
         __dirname,
         "../../assets",
@@ -322,8 +322,8 @@ router.post("/create", async (ctx, next) => {
       diskTotal: diskTotal ? parseInt(diskTotal) : null,
       lossless: !!lossless,
       sampleRate: sampleRate ? parseInt(sampleRate) : null,
-      start: start ? parseInt(start) : null,
-      bitrate: bitrate ? parseInt(bitrate) : null,
+      start: start ? start : null,
+      bitrate: bitrate ? bitrate : null,
       picUrl: picUrl || "",
     } as SaveType]);
     setResponseBody(ctx, 200, true, "创建成功");
