@@ -152,7 +152,7 @@ router.get("/", async (ctx, next) => {
   await next();
 });
 
-async function getSongsArtist(songs: Model[]) {
+export async function getSongsArtist(songs: Model[]) {
   return await Promise.all(songs.map(async (song) => {
     const artist = await SongArtist.where(
       SongArtist.field("song_id"),

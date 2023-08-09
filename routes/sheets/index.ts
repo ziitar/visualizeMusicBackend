@@ -8,6 +8,8 @@ import {
   setResponseBody,
 } from "../../utils/util.ts";
 import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
+import Album from "../../models/album.ts";
+import { getSongsArtist } from "../songs/index.ts";
 
 const router = new Router<{ session: Session }>();
 
@@ -126,9 +128,13 @@ router.get("/song/:id", async (ctx, next) => {
           Song,
           Song.field("id"),
           SongSheet.field("song_id"),
-        ).get();
+        ).join(Album, Album.field("id"), Song.field("album_id")).select(
+          Album.field("name", "album"),
+          Song.field("id"),
+          ...Object.keys(Song.fields).filter((item) => item !== "id"),
+        ).all();
       setResponseBody(ctx, 200, {
-        songs: data,
+        songs: await getSongsArtist(data),
         sum: data.length,
       }, "操作成功");
     } else {
