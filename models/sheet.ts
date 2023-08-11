@@ -13,7 +13,10 @@ class Sheet extends Model {
       allowNull: false,
     },
     sheetName: DataTypes.STRING,
-    url: DataTypes.STRING,
+    url: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   };
 }
 

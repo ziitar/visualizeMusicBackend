@@ -3,6 +3,7 @@ import {
   AlbumArtist,
   Artist,
   db,
+  Sheet,
   Song,
   SongArtist,
   SongSheet,
@@ -54,6 +55,18 @@ async function createSong(
       artistId: artistId,
     });
   }
+  let sheet = await Sheet.find(1);
+  if (!sheet) {
+    sheet = await Sheet.create({
+      id: 1,
+      sheetName: "系统歌单",
+      userId: 1,
+    });
+  }
+  await SongSheet.create({
+    songId: songModel.lastInsertId as FieldValue,
+    sheetId: sheet.id as FieldValue || sheet.lastInsertId as FieldValue,
+  });
 }
 async function storeSong(songs: SaveType[]) {
   for await (const song of songs) {
@@ -235,6 +248,9 @@ router.get("/search", async (ctx, next) => {
   result = await songs.join(Album, Album.field("id"), Song.field("album_id"))
     .select(
       Album.field("name", "album"),
+      Album.field("year"),
+      Album.field("track_total"),
+      Album.field("image"),
       Song.field("id"),
       ...Object.keys(Song.fields).filter((item) => item !== "id"),
     )

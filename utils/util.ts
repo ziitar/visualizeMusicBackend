@@ -22,7 +22,7 @@ export function isEmptyOrNull(v: unknown): v is EmptyOrNull {
 }
 // 判断一个对象是否为空
 export function isEmptyObject(obj: object): boolean {
-  for (const i in obj) {
+  for (const _ in obj) {
     return false;
   }
   return true;
@@ -72,9 +72,10 @@ export function convertInvalidValueForStore<
   }
   return value as TAndNull<T>;
 }
-export function filterInvalidValueForStore<T extends Record<string, any>>(
+export function filterInvalidValueForStore<T extends object>(
   value: T,
 ): Nullable<T> {
+  // deno-lint-ignore ban-ts-comment
   // @ts-ignore
   const obj: Nullable<T> = {
     ...value,
@@ -148,4 +149,13 @@ export function limitRange(range: ByteRange, limit: number): ByteRange {
     };
   }
   return range;
+}
+
+const charts =
+  "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-$%&!@#*";
+
+export function randomPassword(length = 8) {
+  return new Array(length).fill("").map((_) =>
+    charts[Math.floor(Math.random() * charts.length)]
+  ).join("");
 }

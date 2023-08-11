@@ -3,6 +3,7 @@ import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
 import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import { filterInvalidValueForStore } from "../util.ts";
+import config from "../../config/config.json" assert { type: "json" };
 export function getExtension(str: string) {
   return mime.getExtension(str);
 }
@@ -102,7 +103,7 @@ export async function saveResult(path: string, exclude: string[]) {
     }
     saveArr.push(filterInvalidValueForStore({
       type,
-      url,
+      url: denoPath.relative(config.source, url),
       picUrl: `/assets/${denoPath.basename(picUrl)}`,
       title,
       artist,

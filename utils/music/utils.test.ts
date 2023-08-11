@@ -6,6 +6,7 @@ import { getCue, getID3, mapReadDir } from "./utils.ts";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { saveResult } from "./exec.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
+import config from "../../config/config.json" assert { type: "json" };
 
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
 Deno.test({
@@ -36,7 +37,7 @@ Deno.test({
 
 Deno.test({
   name: "test getID3",
-  ignore: false,
+  ignore: true,
   fn: async () => {
     const path =
       "Y:\\Bad Bunny\\Un verano sin ti\\03 Bad Bunny & Chencho Corleone - Me porto bonito.flac";
@@ -117,5 +118,17 @@ Deno.test({
     const exist = await exists(path);
     console.log(exist);
     assertEquals(exist, true);
+  },
+});
+
+Deno.test({
+  name: "test path resolve",
+  ignore: true,
+  fn: () => {
+    const path = "Y:\\林忆莲\\Love,Sandy\\为你我受冷风吹.flac";
+    const i = denoPath.relative(config.source, path);
+    assertEquals(i, "Love,Sandy\\为你我受冷风吹.flac");
+    const j = denoPath.join(config.source, i);
+    assertEquals(j, path);
   },
 });

@@ -45,7 +45,7 @@ router.delete("/:id", async (ctx, next) => {
   const userId = await ctx.state.session?.get("userId") as number;
   const id = ctx.params.id;
 
-  if (!isEmptyOrNull(id)) {
+  if (!isEmptyOrNull(id) && id != "1") {
     const userSheets = await Sheet.where({ userId }).find(id);
     if (userSheets) {
       await userSheets.delete();
