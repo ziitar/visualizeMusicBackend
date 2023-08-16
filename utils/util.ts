@@ -159,3 +159,21 @@ export function randomPassword(length = 8) {
     charts[Math.floor(Math.random() * charts.length)]
   ).join("");
 }
+
+export function underline(str: string) {
+  return str.replace(/([A-Z])/g, "_$1").toLowerCase();
+}
+
+export function formatDBValue(value: unknown) {
+  if (typeof value === "number") {
+    return value;
+  } else if (typeof value === "boolean") {
+    return value ? 1 : 0;
+  } else if (isEmptyOrNull(value)) {
+    return null;
+  } else if (typeof value === "string") {
+    return value;
+  } else {
+    return null;
+  }
+}

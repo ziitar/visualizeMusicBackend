@@ -1,3 +1,4 @@
+import { RowDataPacket } from "npm:mysql2@3.6.0";
 import {
   Album,
   AlbumArtist,
@@ -15,16 +16,14 @@ import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
 import { formatFileName, splitArtist } from "../../utils/music/utils.ts";
 import { setResponseBody } from "../../utils/util.ts";
 import config from "../../config/config.json" assert { type: "json" };
-import { FieldValue } from "https://deno.land/x/denodb@v1.4.0/lib/data-types.ts";
-import { Model } from "https://deno.land/x/denodb@v1.4.0/mod.ts";
 
 const router = new Router();
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
 
 async function createSong(
   song: SaveType,
-  albumId: FieldValue,
-  artistIds: FieldValue[],
+  albumId: number,
+  artistIds: number[],
 ) {
   const {
     type,
@@ -37,36 +36,49 @@ async function createSong(
     start,
     bitrate,
   } = song;
-  const songModel = await Song.create({
-    type,
-    url,
-    title,
-    duration,
-    trackNo,
-    lossless,
-    sampleRate,
-    start,
-    bitrate,
-    albumId,
-  });
-  for await (const artistId of artistIds) {
-    await SongArtist.create({
-      songId: songModel.lastInsertId as FieldValue,
-      artistId: artistId,
+  await db.beginTransaction();
+  try {
+    const [songModel] = await Song.create({
+      type,
+      url,
+      title,
+      duration,
+      trackNo,
+      lossless,
+      sampleRate,
+      start,
+      bitrate,
+      albumId,
     });
-  }
-  let sheet = await Sheet.find(1);
-  if (!sheet) {
-    sheet = await Sheet.create({
-      id: 1,
-      sheetName: "系统歌单",
-      userId: 1,
+    for await (const artistId of artistIds) {
+      await SongArtist.create({
+        songId: songModel.insertId,
+        artistId: artistId,
+      });
+    }
+    let sheetId;
+    let [rows] = await Sheet.query({ id: 1 });
+    if (!rows.length) {
+      const [rows] = await Sheet.create({
+        id: 1,
+        sheetName: "系统歌单",
+        userId: 1,
+      });
+      if (rows.affectedRows) {
+        sheetId = rows.insertId;
+      }
+    } else {
+      sheetId = rows[0].id;
+    }
+    await SongSheet.create({
+      songId: songModel.insertId,
+      sheetId: sheetId,
     });
+    await db.commit();
+  } catch (e) {
+    await db.rollback();
+    throw e;
   }
-  await SongSheet.create({
-    songId: songModel.lastInsertId as FieldValue,
-    sheetId: sheet.id as FieldValue || sheet.lastInsertId as FieldValue,
-  });
 }
 async function storeSong(songs: SaveType[]) {
   for await (const song of songs) {
@@ -82,22 +94,24 @@ async function storeSong(songs: SaveType[]) {
       picUrl,
     } = song;
     const albumartistList = splitArtist(albumartist || artist || undefined);
-    const artistModels = await Promise.all(
+    const artistModels = (await Promise.all(
       albumartistList.map(async (artist) => {
-        const albumartists = await Artist.where("name", artist).first();
-        if (albumartists) {
+        const [albumartists] = await Artist.query({ "name": artist });
+        if (albumartists.length) {
           return albumartists;
         } else {
-          return await Artist.create({ name: artist });
+          const [rows] = await Artist.create({ name: artist });
+          return [{ id: rows.insertId, name: artist }];
         }
       }),
-    );
-    let albumModel = await Album.where("name", album).first();
+    )).flat();
+    let albumId: number;
+    let [albumModel] = await Album.query({ "name": album });
     if (
-      !albumModel || (type === "tracks" && diskTotal && diskTotal > 1 &&
-        diskNo != albumModel.diskNo)
+      !albumModel.length || (type === "tracks" && diskTotal && diskTotal > 1 &&
+        diskNo != albumModel[0].disk_no)
     ) {
-      albumModel = await Album.create({
+      const [rows] = await Album.create({
         name: album,
         image: picUrl,
         trackTotal: trackTotal,
@@ -105,42 +119,40 @@ async function storeSong(songs: SaveType[]) {
         diskTotal,
         year,
       });
+      albumId = rows.insertId;
+    } else {
+      albumId = albumModel[0].id;
     }
     await Promise.all(
       artistModels.map(async (artistModel) => {
-        const albumArtistModel = await AlbumArtist.where({
-          albumId: albumModel.id as FieldValue ||
-            albumModel.lastInsertId as FieldValue,
-          artistId: artistModel.id as FieldValue ||
-            artistModel.lastInsertId as FieldValue,
-        }).first();
-        if (!albumArtistModel) {
+        const [albumArtistModel] = await AlbumArtist.query({
+          albumId: albumId,
+          artistId: artistModel.id,
+        });
+        if (!albumArtistModel.length) {
           await AlbumArtist.create({
-            albumId: albumModel.id as FieldValue ||
-              albumModel.lastInsertId as FieldValue,
-            artistId: artistModel.id as FieldValue ||
-              artistModel.lastInsertId as FieldValue,
+            albumId: albumId,
+            artistId: artistModel.id,
           });
         }
       }),
     );
     const artistList = splitArtist(artist || undefined);
-    const artistModels_2 = await Promise.all(
+    const artistModels_2 = (await Promise.all(
       artistList.map(async (artist) => {
-        const artists = await Artist.where("name", artist).first();
-        if (artists) {
+        const [artists] = await Artist.query({ "name": artist });
+        if (artists.length) {
           return artists;
         } else {
-          return await Artist.create({ name: artist });
+          const [rows] = await Artist.create({ name: artist });
+          return [{ id: rows.insertId, name: artist }];
         }
       }),
-    );
+    )).flat();
     await createSong(
       song,
-      albumModel.id as FieldValue || albumModel.lastInsertId as FieldValue,
-      artistModels_2.map((item) =>
-        item.id as FieldValue || item.lastInsertId as FieldValue
-      ),
+      albumId,
+      artistModels_2.map((item) => item.id),
     );
   }
 }
@@ -160,21 +172,21 @@ router.put("/store", async (ctx, next) => {
 });
 
 router.get("/", async (ctx, next) => {
-  const result = await Song.all();
+  const [result] = await Song.query({});
   setResponseBody(ctx, 200, result, "查询成功");
   await next();
 });
 
-export async function getSongsArtist(songs: Model[]) {
+export async function getSongsArtist(songs: RowDataPacket[]) {
   return await Promise.all(songs.map(async (song) => {
-    const artist = await SongArtist.where(
-      SongArtist.field("song_id"),
-      song.id as FieldValue,
-    ).join(
-      Artist,
-      Artist.field("id"),
-      SongArtist.field("artist_id"),
-    ).select(Artist.field("name")).all();
+    const [artist] = await db.execute<RowDataPacket[]>(
+      `
+      select ${Artist.table}.name from ${SongArtist} 
+      join ${Artist.table} on ${Artist.table}.id = ${SongArtist.table}.artist_id 
+      where ${SongArtist.table}.song_id = ?
+    `,
+      [song.id],
+    );
     return {
       ...song,
       artist: artist.map((item) => item.name),
@@ -183,24 +195,24 @@ export async function getSongsArtist(songs: Model[]) {
 }
 
 router.get("/all", async (ctx, next) => {
-  const artist = await AlbumArtist.groupBy(AlbumArtist.field("artist_id")).join(
-    Artist,
-    Artist.field("id"),
-    AlbumArtist.field("artist_id"),
-  ).select(
-    Artist.field("name", "albummartist"),
-    Artist.field("id", "albummartistId"),
-  ).all();
-  const result = await Promise.all(artist.map(async (albummartist) => {
-    const albums = await AlbumArtist.where(
-      AlbumArtist.field("artist_id"),
-      albummartist.albummartistId as FieldValue,
-    ).join(Album, Album.field("id"), AlbumArtist.field("album_id")).all();
+  const [artists] = await db.query<RowDataPacket[]>(`
+    select ${Artist.table}.name as albumartist, ${Artist.table}.id as albumartistId from ${AlbumArtist.table}
+    join ${Artist.table} on ${Artist.table}.id = ${AlbumArtist.table}.artist_id
+    group by ${AlbumArtist.table}.artist_id
+  `);
+  const result = await Promise.all(artists.map(async (albummartist) => {
+    const [albums] = await db.query<RowDataPacket[]>(
+      `
+      select ${Album.getFields().join(", ")} from ${AlbumArtist.table} 
+      join ${Album.table} on ${AlbumArtist.table}.album_id = ${Album.table}.id
+      where ${AlbumArtist.table}.artist_id = ?
+    `,
+      [albummartist.albumartistId],
+    );
     const albumSong = await Promise.all(albums.map(async (album) => {
-      const songs = await Song.where(
-        Song.field("album_id"),
-        album.id as FieldValue,
-      ).all();
+      const [songs] = await Song.query({
+        album_id: album.id,
+      });
       const songArtist = await getSongsArtist(songs);
       return {
         album: album,
@@ -218,63 +230,63 @@ router.get("/all", async (ctx, next) => {
 });
 
 router.get("/search", async (ctx, next) => {
-  const { title, artist, album } = helpers.getQuery(ctx);
-  let songs, artists: Model[] | undefined, albums: Model[] | undefined, result;
+  // const { title, artist, album, offset, limit } = helpers.getQuery(ctx);
+  // let songs, artists, albums, result;
 
-  if (artist) {
-    artists = await Artist.where("name", "like", `%${artist}%`).all();
-  }
-  if (album) {
-    albums = await Album.where("name", "like", `%${album}%`).all();
+  // if (artist) {
+  //   artists = await Artist.where("name", "like", `%${artist}%`).all();
+  // }
+  // if (album) {
+  //   albums = await Album.where("name", "like", `%${album}%`).all();
 
-    if (artists) {
-      const artistAlbums = (await Promise.all(artists.map(async (artist) => {
-        return await AlbumArtist.where(
-          "artist_id",
-          artist.id as FieldValue,
-        )
-          .all();
-      }))).flat().map((item) => item.albumId as FieldValue);
-      albums = albums.filter((album) =>
-        artistAlbums.includes(album.id as FieldValue)
-      );
-    }
-  }
-  if (title) {
-    songs = Song.where("title", "like", `%${title}%`);
-  } else {
-    songs = Song;
-  }
-  result = await songs.join(Album, Album.field("id"), Song.field("album_id"))
-    .select(
-      Album.field("name", "album"),
-      Album.field("year"),
-      Album.field("track_total"),
-      Album.field("image"),
-      Song.field("id"),
-      ...Object.keys(Song.fields).filter((item) => item !== "id"),
-    )
-    .all();
-  if (albums) {
-    result = result.filter((song) =>
-      albums?.some((album) => album.id === song.albumId)
-    );
-  }
-  if (artists && !albums) {
-    const songArtists = (await Promise.all(artists.map(async (artist) => {
-      return await SongArtist.where(
-        "artist_id",
-        artist.id as FieldValue,
-      )
-        .all();
-    }))).flat().map((item) => item.songId as FieldValue);
-    result = result.filter((song) =>
-      songArtists.includes(song.id as FieldValue)
-    );
-  }
-  result = await getSongsArtist(result);
-  setResponseBody(ctx, 200, result, "查询成功");
-  await next();
+  //   if (artists) {
+  //     const AlbumArtists = (await Promise.all(artists.map(async (artist) => {
+  //       return await AlbumArtist.where(
+  //         "artist_id",
+  //         artist.id as FieldValue,
+  //       )
+  //         .all();
+  //     }))).flat().map((item) => item.albumId as FieldValue);
+  //     albums = albums.filter((album) =>
+  //       AlbumArtists.includes(album.id as FieldValue)
+  //     );
+  //   }
+  // }
+  // if (title) {
+  //   songs = Song.where("title", "like", `%${title}%`);
+  // } else {
+  //   songs = Song;
+  // }
+  // result = await songs.join(Album, Album.field("id"), Song.field("album_id"))
+  //   .select(
+  //     Album.field("name", "album"),
+  //     Album.field("year"),
+  //     Album.field("track_total"),
+  //     Album.field("image"),
+  //     Song.field("id"),
+  //     ...Object.keys(Song.fields).filter((item) => item !== "id"),
+  //   )
+  //   .all();
+  // if (albums) {
+  //   result = result.filter((song) =>
+  //     albums?.some((album) => album.id === song.albumId)
+  //   );
+  // }
+  // if (artists && !albums) {
+  //   const songArtists = (await Promise.all(artists.map(async (artist) => {
+  //     return await SongArtist.where(
+  //       "artist_id",
+  //       artist.id as FieldValue,
+  //     )
+  //       .all();
+  //   }))).flat().map((item) => item.songId as FieldValue);
+  //   result = result.filter((song) =>
+  //     songArtists.includes(song.id as FieldValue)
+  //   );
+  // }
+  // result = await getSongsArtist(result);
+  // setResponseBody(ctx, 200, result, "查询成功");
+  // await next();
 });
 
 router.post("/create", async (ctx, next) => {
@@ -349,13 +361,18 @@ router.post("/create", async (ctx, next) => {
 
 router.delete("/:id", async (ctx, next) => {
   const id = ctx.params.id;
-  const exsit = await Song.find(id);
-  if (exsit) {
-    await db.transaction(async () => {
-      await exsit.delete();
-      await SongArtist.where("songId", id).delete();
-      await SongSheet.where("songId", id).delete();
-    });
+  const [exsit] = await Song.query({ id });
+  if (exsit.length) {
+    await db.beginTransaction();
+    try {
+      await Song.deleteFn({ id });
+      await SongArtist.deleteFn({ songId: id });
+      await SongSheet.deleteFn({ songId: id });
+      await db.commit();
+    } catch (e) {
+      await db.rollback();
+      throw e;
+    }
     setResponseBody(ctx, 200, true, "删除成功");
   } else {
     setResponseBody(ctx, 400, false, 0, "没有此id");

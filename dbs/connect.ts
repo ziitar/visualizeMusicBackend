@@ -1,18 +1,18 @@
-import {
-  Database,
-  MySQLConnector,
-} from "https://deno.land/x/denodb@v1.4.0/mod.ts";
+import mysql from "npm:mysql2@3.6.0/promise";
 
 import connectInfo from "../config/connect.json" assert { type: "json" };
 
-const connection = new MySQLConnector({
+const pool = await mysql.createPool({
   host: connectInfo.host,
   port: connectInfo.port,
-  username: connectInfo.user,
+  user: connectInfo.user,
   password: connectInfo.password,
   database: connectInfo.dataBase,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
 });
 
-const db = new Database(connection);
-
-export default db;
+export default pool;

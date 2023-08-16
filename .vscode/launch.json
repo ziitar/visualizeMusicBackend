@@ -19,7 +19,7 @@
       "request": "launch",
       "name": "Debug test utils",
       "type": "node",
-      "program": "${workspaceFolder}/utils/music/",
+      "program": "${workspaceFolder}/utils/models/",
       "cwd": "${workspaceFolder}",
       "runtimeExecutable": "C:\\Program Files\\deno\\deno.EXE",
       "runtimeArgs": [

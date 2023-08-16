@@ -1,42 +1,17 @@
-import { DataTypes, Model } from "https://deno.land/x/denodb@v1.4.0/mod.ts";
+import { Model } from "../utils/models/util.ts";
 
-class Song extends Model {
-  static table = "song";
-
-  static timestamps = true;
-
-  static fields = {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-      allowNull: false,
-    },
-    type: DataTypes.enum(["single", "tracks"]),
-    url: DataTypes.STRING,
-    title: DataTypes.STRING,
-    duration: DataTypes.STRING,
-    trackNo: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    lossless: {
-      type: DataTypes.BOOLEAN,
-      allowNull: true,
-    },
-    sampleRate: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    start: {
-      type: DataTypes.FLOAT,
-      allowNull: true,
-    },
-    bitrate: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
-  };
-}
+const Song = new Model("song", [
+  "id",
+  "type",
+  "url",
+  "title",
+  "duration",
+  "track_no",
+  "lossless",
+  "sample_rate",
+  "start",
+  "bitrate",
+  "album_id",
+]);
 
 export default Song;
