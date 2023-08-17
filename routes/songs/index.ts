@@ -14,7 +14,7 @@ import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { getExtension, saveResult, SaveType } from "../../utils/music/exec.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
 import { formatFileName, splitArtist } from "../../utils/music/utils.ts";
-import { setResponseBody } from "../../utils/util.ts";
+import { isTrulyValue, setResponseBody } from "../../utils/util.ts";
 import config from "../../config/config.json" assert { type: "json" };
 
 const router = new Router();
@@ -181,7 +181,7 @@ export async function getSongsArtist(songs: RowDataPacket[]) {
   return await Promise.all(songs.map(async (song) => {
     const [artist] = await db.execute<RowDataPacket[]>(
       `
-      select ${Artist.table}.name from ${SongArtist} 
+      select ${Artist.table}.name from ${SongArtist.table} 
       join ${Artist.table} on ${Artist.table}.id = ${SongArtist.table}.artist_id 
       where ${SongArtist.table}.song_id = ?
     `,
@@ -230,63 +230,101 @@ router.get("/all", async (ctx, next) => {
 });
 
 router.get("/search", async (ctx, next) => {
-  // const { title, artist, album, offset, limit } = helpers.getQuery(ctx);
-  // let songs, artists, albums, result;
+  const { title, artist, album, offset = "0", limit = "10" } = helpers.getQuery(
+    ctx,
+  );
+  let artists, albums, result, values: unknown[] = [], total;
 
-  // if (artist) {
-  //   artists = await Artist.where("name", "like", `%${artist}%`).all();
-  // }
-  // if (album) {
-  //   albums = await Album.where("name", "like", `%${album}%`).all();
-
-  //   if (artists) {
-  //     const AlbumArtists = (await Promise.all(artists.map(async (artist) => {
-  //       return await AlbumArtist.where(
-  //         "artist_id",
-  //         artist.id as FieldValue,
-  //       )
-  //         .all();
-  //     }))).flat().map((item) => item.albumId as FieldValue);
-  //     albums = albums.filter((album) =>
-  //       AlbumArtists.includes(album.id as FieldValue)
-  //     );
-  //   }
-  // }
-  // if (title) {
-  //   songs = Song.where("title", "like", `%${title}%`);
-  // } else {
-  //   songs = Song;
-  // }
-  // result = await songs.join(Album, Album.field("id"), Song.field("album_id"))
-  //   .select(
-  //     Album.field("name", "album"),
-  //     Album.field("year"),
-  //     Album.field("track_total"),
-  //     Album.field("image"),
-  //     Song.field("id"),
-  //     ...Object.keys(Song.fields).filter((item) => item !== "id"),
-  //   )
-  //   .all();
-  // if (albums) {
-  //   result = result.filter((song) =>
-  //     albums?.some((album) => album.id === song.albumId)
-  //   );
-  // }
-  // if (artists && !albums) {
-  //   const songArtists = (await Promise.all(artists.map(async (artist) => {
-  //     return await SongArtist.where(
-  //       "artist_id",
-  //       artist.id as FieldValue,
-  //     )
-  //       .all();
-  //   }))).flat().map((item) => item.songId as FieldValue);
-  //   result = result.filter((song) =>
-  //     songArtists.includes(song.id as FieldValue)
-  //   );
-  // }
-  // result = await getSongsArtist(result);
-  // setResponseBody(ctx, 200, result, "查询成功");
-  // await next();
+  if (artist) {
+    [artists] = await db.execute<RowDataPacket[]>(
+      `
+      select id from ${Artist.table} where ${Artist.table}.name like CONCAT('%', ?, '%')
+    `,
+      [artist],
+    );
+  }
+  if (artists && !artists.length) {
+    artists = undefined;
+  }
+  if (album) {
+    if (artists) {
+      [albums] = await db.execute<RowDataPacket[]>(
+        `
+        select ${Album.table}.id from ${Album.table} 
+        join ${AlbumArtist.table} on ${AlbumArtist.table}.album_id = ${Album.table}.id
+        where ${AlbumArtist.table}.artist_id in (?) and
+        ${Album.table}.name like CONCAT('%', ?, '%')
+      `,
+        [artists.map((item) => item.id).join(", "), album],
+      );
+    } else {
+      [albums] = await db.execute<RowDataPacket[]>(
+        `
+        select id from ${Album.table} where ${Album.table}.name like CONCAT('%', ?, '%')
+      `,
+        [album],
+      );
+    }
+  }
+  if (albums && !albums.length) {
+    albums = undefined;
+  }
+  const execute = `
+      from ${Song.table} 
+      join ${Album.table} on ${Album.table}.id = ${Song.table}.album_id  
+      ${isTrulyValue(title) || albums || artists ? "where " : ""}
+      ${
+    isTrulyValue(title) ? Song.table + ".title like CONCAT('%', ?, '%') " : ""
+  }
+      ${albums ? isTrulyValue(title) ? "and " : "" : ""}
+      ${
+    albums
+      ? Song.table + ".album_id in (" + albums.map((item) =>
+        item.id
+      ).join(",") + ") "
+      : ""
+  }
+      ${!albums && artists ? isTrulyValue(title) ? "and " : "" : ""}
+      ${
+    !albums && artists
+      ? Song.table + ".id in (select " + SongArtist.table + ".song_id from " +
+        SongArtist.table + " where " +
+        SongArtist.table + ".artist_id in " +
+        artists.map((item) => item.id).join(",") +
+        ") "
+      : ""
+  }    
+  `;
+  if (isTrulyValue(title)) {
+    values = values.concat(title);
+  }
+  [total] = await db.execute<RowDataPacket[]>(
+    `select count(*) ${execute}`,
+    values,
+  );
+  [result] = await db.execute<RowDataPacket[]>(
+    `
+    select 
+      ${Song.table}.*, 
+      ${Album.table}.name as album, 
+      ${Album.table}.image,
+      ${Album.table}.year,
+      ${Album.table}.track_total,
+      ${Album.table}.disk_no,
+      ${Album.table}.disk_total 
+      ${execute}
+    limit ${limit} offset ${offset}
+    `,
+    values,
+  );
+  result = await getSongsArtist(result);
+  setResponseBody(
+    ctx,
+    200,
+    { data: result, total: total[0]["count(*)"] },
+    "查询成功",
+  );
+  await next();
 });
 
 router.post("/create", async (ctx, next) => {

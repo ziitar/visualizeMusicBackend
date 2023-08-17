@@ -4,9 +4,9 @@ import Sheet from "../models/sheet.ts";
 import Song from "../models/song.ts";
 import Album from "../models/album.ts";
 import Artist from "../models/artist.ts";
-import AlbumArtist from "../models/AlbumArtist.ts";
 import SongArtist from "../models/songArtist.ts";
 import SongSheet from "../models/songSheet.ts";
+import AlbumArtist from "../models/albumArtist.ts";
 
 export {
   Album,

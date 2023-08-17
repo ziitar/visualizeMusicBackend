@@ -119,7 +119,7 @@ export function getFieldsFactory(model: Model) {
         !selectFields.includes(item)
       );
     }
-    return selectFields;
+    return selectFields.map((item) => `${model.table}.${item}`);
   }
   return fields;
 }
