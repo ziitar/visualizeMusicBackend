@@ -164,6 +164,10 @@ export function underline(str: string) {
   return str.replace(/([A-Z])/g, "_$1").toLowerCase();
 }
 
+export function hump(str: string) {
+  return str.replace(/\B_(\w)/g, (m) => m[1].toLocaleUpperCase());
+}
+
 export function formatDBValue(value: unknown) {
   if (typeof value === "number") {
     return value;

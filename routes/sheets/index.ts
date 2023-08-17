@@ -138,7 +138,10 @@ router.get("/song/:id", async (ctx, next) => {
     if (num) {
       const [data] = await db.execute<RowDataPacket[]>(
         `
-        select ${Song.getFields().join(",")} from ${Song.table} 
+        select ${Song.getFields().join(",")}, ${Album.table}.name as album, 
+        ${
+          Album.getFields("exclude", ["name", "id", "created_at", "updated_at"])
+        } from ${Song.table} 
         join ${SongSheet.table} on ${SongSheet.table}.song_id = ${Song.table}.id 
         join ${Album.table} on ${Album.table}.id = ${Song.table}.album_id 
         where ${SongSheet.table}.sheet_id = ?

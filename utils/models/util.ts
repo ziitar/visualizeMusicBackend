@@ -1,5 +1,5 @@
 import { ResultSetHeader, RowDataPacket } from "npm:mysql2@3.6.0";
-import { formatDBValue, isEmptyObject, underline } from "../util.ts";
+import { formatDBValue, hump, isEmptyObject, underline } from "../util.ts";
 import { db } from "../../dbs/index.ts";
 
 export class Model {
@@ -119,7 +119,9 @@ export function getFieldsFactory(model: Model) {
         !selectFields.includes(item)
       );
     }
-    return selectFields.map((item) => `${model.table}.${item}`);
+    return selectFields.map((item) =>
+      `${model.table}.${item} as ${hump(item)}`
+    );
   }
   return fields;
 }

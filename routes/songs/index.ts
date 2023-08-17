@@ -305,13 +305,9 @@ router.get("/search", async (ctx, next) => {
   [result] = await db.execute<RowDataPacket[]>(
     `
     select 
-      ${Song.table}.*, 
+      ${Song.getFields().join(", ")},
       ${Album.table}.name as album, 
-      ${Album.table}.image,
-      ${Album.table}.year,
-      ${Album.table}.track_total,
-      ${Album.table}.disk_no,
-      ${Album.table}.disk_total 
+      ${Album.getFields("exclude", ["name", "id", "created_at", "updated_at"])}
       ${execute}
     limit ${limit} offset ${offset}
     `,
