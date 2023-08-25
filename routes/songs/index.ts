@@ -289,9 +289,9 @@ router.get("/search", async (ctx, next) => {
     !albums && artists
       ? Song.table + ".id in (select " + SongArtist.table + ".song_id from " +
         SongArtist.table + " where " +
-        SongArtist.table + ".artist_id in " +
+        SongArtist.table + ".artist_id in (" +
         artists.map((item) => item.id).join(",") +
-        ") "
+        ")) "
       : ""
   }    
   `;

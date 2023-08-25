@@ -76,11 +76,26 @@ const getResource: RouterMiddleware<
         "Content-Range",
         `bytes ${byteRange.start}-${byteRange.end}/${fileInfo.size}`,
       );
-      ctx.response.status = 206;
+      if (contentType) {
+        ctx.response.headers.set("Content-Type", contentType);
+      }
     } else {
-      res.close();
-      throw new Error("暂时不支持");
+      const boundary = crypto.randomUUID().replace(/.+-(\w+)$/, "$1");
+      const body = (await Promise.all(ranges.map(async (byteRange) => {
+        const uint8Array = new Uint8Array(byteRange.end - byteRange.start + 1);
+        await Deno.seek(res.rid, byteRange.start, Deno.SeekMode.Start);
+        await res.read(uint8Array);
+        return `--${boundary}\r\nContent-Type: ${contentType}\r\nContent-Range: bytes ${byteRange.start}-${byteRange.end}/${fileInfo.size}\r\n\r\n${
+          uint8Array.join(" ")
+        }\r\n`;
+      }))).join("");
+      ctx.response.body = `${body}--${boundary}--`;
+      ctx.response.headers.set(
+        "Content-Type",
+        `multipart/byteranges; boundary=${boundary}`,
+      );
     }
+    ctx.response.status = 206;
   } else {
     const uint8Array = new Uint8Array(fileInfo.size);
     await res.read(uint8Array);
@@ -89,6 +104,9 @@ const getResource: RouterMiddleware<
       "Content-Range",
       `bytes 0-${fileInfo.size - 1}/${fileInfo.size}`,
     );
+    if (contentType) {
+      ctx.response.headers.set("Content-Type", contentType);
+    }
     ctx.response.status = 200;
   }
   const etag = await calculate(fileInfo, { weak: true });
@@ -96,9 +114,6 @@ const getResource: RouterMiddleware<
     ctx.response.headers.set("Etag", etag);
   }
   ctx.response.headers.set("Accept-Ranges", "bytes");
-  if (contentType) {
-    ctx.response.headers.set("Content-Type", contentType);
-  }
   res.close();
   await next();
 };

@@ -1,13 +1,7 @@
-import { db, User } from "../../dbs/index.ts";
+import { User } from "../../dbs/index.ts";
 import { helpers, Router } from "https://deno.land/x/oak@v12.2.0/mod.ts";
-import {
-  formatDBValue,
-  isTrulyArg,
-  isTrulyValue,
-  setResponseBody,
-} from "../../utils/util.ts";
+import { isTrulyArg, isTrulyValue, setResponseBody } from "../../utils/util.ts";
 import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
-import { ResultSetHeader, RowDataPacket } from "npm:mysql2@3.6.0/promise";
 
 const router = new Router<{ session: Session }>();
 
@@ -57,11 +51,12 @@ router.post("/register", async (ctx, next) => {
   if (isTrulyArg(username, password)) {
     const flag = await checkName(username);
     if (flag) {
-      const [user] = await db.execute<ResultSetHeader>(
-        `insert into user (username, password, email, headUrl) values ('${username}', '${password}', ${
-          formatDBValue(email)
-        }, ${formatDBValue(headUrl)})`,
-      );
+      const [user] = await User.create({
+        username,
+        password,
+        email,
+        headUrl,
+      });
       if (user.affectedRows > 0) {
         ctx.state.session.set("userId", user.insertId);
         setResponseBody(ctx, 200, {

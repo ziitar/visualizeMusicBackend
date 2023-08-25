@@ -130,10 +130,15 @@ router.get("/song/:id", async (ctx, next) => {
   const id = ctx.params.id;
   const userId = await ctx.state.session?.get("userId") as number;
   if (isTrulyArg(id)) {
-    const [sheetsModel] = await Sheet.query({
-      userId,
-      id,
-    });
+    let sheetsModel;
+    if (parseInt(id) !== 1) {
+      [sheetsModel] = await Sheet.query({
+        userId,
+        id,
+      });
+    } else {
+      [sheetsModel] = await Sheet.query({ id });
+    }
     const num = sheetsModel.length;
     if (num) {
       const [data] = await db.execute<RowDataPacket[]>(
@@ -149,8 +154,9 @@ router.get("/song/:id", async (ctx, next) => {
         [id],
       );
       setResponseBody(ctx, 200, {
+        sheet: sheetsModel[0],
         songs: await getSongsArtist(data),
-        sum: data.length,
+        total: data.length,
       }, "操作成功");
     } else {
       setResponseBody(ctx, 400, false, "获取歌曲失败，不存在此歌单");

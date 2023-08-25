@@ -51,7 +51,11 @@ export function getBodyType(contentType: string): BodyType {
         return "arrayBuffer";
       }
     } else if (mainType === "multipart") {
-      return "formData";
+      if (subType === "formData") {
+        return "formData";
+      } else {
+        return "arrayBuffer";
+      }
     } else {
       return "blob";
     }
