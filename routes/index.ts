@@ -8,7 +8,7 @@ import SheetsRoutes from "./sheets/index.ts";
 import SongRoutes from "./songs/index.ts";
 import AssetsRoutes from "./assets.ts";
 import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
-import { setResponseBody } from "../utils/util.ts";
+import { isTrulyValue, setResponseBody } from "../utils/util.ts";
 
 const author: RouterMiddleware<
   string,
@@ -16,7 +16,7 @@ const author: RouterMiddleware<
   { session: Session }
 > = async (ctx, next) => {
   const userId = await ctx.state.session?.get("userId") as number;
-  if (userId) {
+  if (isTrulyValue(userId)) {
     await next();
   } else {
     setResponseBody(ctx, 401, undefined, "获取不到用户信息，请登录");

@@ -6,3 +6,4 @@ tmp/*
 !assets/music-head.jpg
 !tmp/.gitkeep
 utils/music/result.json
+deno.lock

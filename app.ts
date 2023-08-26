@@ -1,6 +1,9 @@
 import { Application } from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import router from "./routes/index.ts";
-import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
+import {
+  MemoryStore,
+  Session,
+} from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
 import config from "./config/config.json" assert { type: "json" };
 import { setResponseBody } from "./utils/util.ts";
 import db from "./dbs/connect.ts";
@@ -25,8 +28,13 @@ app.use(async (ctx, next) => {
     setResponseBody(ctx, 500, undefined, err.message);
   }
 });
-//@ts-ignore
-app.use(Session.initMiddleware());
+
+app.use(
+  //@ts-ignore
+  Session.initMiddleware(new MemoryStore(), {
+    cookieSetOptions: { sameSite: "none", httpOnly: true, secure: true },
+  }),
+);
 
 app.use(async (ctx, next) => {
   await next();
