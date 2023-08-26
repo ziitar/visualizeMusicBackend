@@ -3,6 +3,7 @@ import router from "./routes/index.ts";
 import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
 import config from "./config/config.json" assert { type: "json" };
 import { setResponseBody } from "./utils/util.ts";
+import db from "./dbs/connect.ts";
 export type AppState = {
   session: Session;
 };
@@ -11,7 +12,14 @@ const app = new Application<AppState>();
 
 app.use(async (ctx, next) => {
   try {
+    db.ping().catch(async (e) => {
+      console.log(e);
+      await db.connect();
+    });
     await next();
+    if (ctx.response.status >= 400 || ctx.response.status < 200) {
+      console.log(ctx.request.url.toString());
+    }
   } catch (err) {
     console.error("app catch", err);
     setResponseBody(ctx, 500, undefined, err.message);
