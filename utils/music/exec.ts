@@ -5,7 +5,7 @@ import { mime } from "https://deno.land/x/mimetypes@v1.0.0/mod.ts";
 import { filterInvalidValueForStore } from "../util.ts";
 import config from "../../config/config.json" assert { type: "json" };
 export function getExtension(str: string) {
-  return mime.getExtension(str);
+  return mime.getExtension(str.replace(/(\w+\/\w+).*/, "$1"));
 }
 
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));

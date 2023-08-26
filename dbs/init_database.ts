@@ -1,4 +1,3 @@
-import { ResultSetHeader } from "npm:mysql2@3.6.0/promise";
 import { randomPassword } from "../utils/util.ts";
 import { db, User } from "./index.ts";
 import { Md5 } from "https://deno.land/std@0.119.0/hash/md5.ts";

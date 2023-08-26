@@ -3,6 +3,7 @@ import {
   assertNotEquals,
 } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import { getCue, getID3, mapReadDir } from "./utils.ts";
+import { getExtension } from "./exec.ts";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { saveResult } from "./exec.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
@@ -19,16 +20,16 @@ Deno.test({
     const cueSheet = getCue(path);
     if (cueSheet) {
       assertEquals(cueSheet.performer, "林俊杰");
-      assertEquals(cueSheet.title, "乐行者 [内地版]");
+      assertEquals(cueSheet.title, "第二天堂 [台湾版]");
       if (cueSheet.files) {
         assertEquals(
           cueSheet.files[0].name,
-          "林俊杰.-.[乐行者](2003)[WAV].wav",
+          "林俊杰.-.[第二天堂](2004)[WAV].wav",
         );
         assertNotEquals(cueSheet.files[0].tracks, undefined);
         assertNotEquals(cueSheet.files[0].tracks, []);
         if (cueSheet.files[0].tracks) {
-          assertEquals(cueSheet.files[0].tracks[0].title, "就是我");
+          assertEquals(cueSheet.files[0].tracks[0].title, "一开始....");
         }
       }
     }
@@ -37,15 +38,13 @@ Deno.test({
 
 Deno.test({
   name: "test getID3",
-  ignore: true,
+  ignore: false,
   fn: async () => {
     const path =
-      "Y:\\Bad Bunny\\Un verano sin ti\\03 Bad Bunny & Chencho Corleone - Me porto bonito.flac";
+      "Y:\\陈奕迅63专辑\\2001粤语 陈奕迅.-.[反正是我].专辑.(ape)\\陈奕迅.-.[反正是我].专辑.(ape).ape";
     const result = await getID3(path);
     console.log(result);
-    if (result) {
-      assertEquals(result.common.title, "I Do");
-    }
+    assertNotEquals(result, undefined);
   },
 });
 
@@ -85,11 +84,11 @@ Deno.test({
 
 Deno.test({
   name: "test exec",
-  ignore: true,
+  ignore: false,
   fn: async () => {
     await saveResult(
-      "Y:\\梁咏琪",
-      ["最爱梁咏琪"],
+      "Y:\\陈奕迅63专辑",
+      [],
     );
     const path = denoPath.join(__dirname, "result.json");
     assertEquals(await exists(path), true);
@@ -130,5 +129,22 @@ Deno.test({
     assertEquals(i, "Love,Sandy\\为你我受冷风吹.flac");
     const j = denoPath.join(config.source, i);
     assertEquals(j, path);
+  },
+});
+
+Deno.test({
+  name: "test getExtension",
+  ignore: true,
+  fn: async () => {
+    const path = "Y:\\李荣浩\\麻雀\\在一起嘛好不好.mp3";
+    const id3 = await getID3(path);
+    assertNotEquals(id3, undefined);
+    assertNotEquals(id3?.common.picture, undefined);
+    console.log(id3);
+    if (id3 && id3.common.picture) {
+      const ext = getExtension(id3.common.picture[0].format);
+      console.log(ext, id3.common.picture[0].format);
+      assertNotEquals(ext, undefined);
+    }
   },
 });

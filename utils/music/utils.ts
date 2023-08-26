@@ -1,7 +1,7 @@
-import { parse } from "https://esm.sh/cue-parser@0.3.0";
-import * as musicMeta from "https://esm.sh/music-metadata@8.1.4";
+import { parse } from "npm:cue-parser@0.3.0";
+import { IPicture, parseBuffer } from "npm:music-metadata@8.1.4";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
-
+import config from "../../config/config.json" assert { type: "json" };
 export function msToTime(duration: number): string {
   const seconds = Math.floor((duration / 1000) % 60),
     minutes = Math.floor((duration / (1000 * 60)) % 60),
@@ -24,9 +24,9 @@ export function splitArtist(str?: string) {
 export function getTracksDuration(
   tracks: Tracks,
   totalDuration: number | undefined,
-): string[] | undefined {
-  if (tracks && totalDuration) {
-    const result: string[] = [];
+): (string | undefined)[] | undefined {
+  if (tracks) {
+    const result: (string | undefined)[] = [];
     tracks.reduceRight<number>((pre, current) => {
       let duration;
       const timeMap = current.indexes?.filter((item) =>
@@ -36,11 +36,17 @@ export function getTracksDuration(
         ? parseFloat(`${timeMap.min * 60 + timeMap.sec}.${timeMap.frame}`)
         : 0;
       if (!pre) {
-        duration = totalDuration - time;
+        if (totalDuration) {
+          duration = totalDuration - time;
+        }
       } else {
         duration = pre - time;
       }
-      result.push(msToTime(duration * 1000));
+      if (duration) {
+        result.push(msToTime(duration * 1000));
+      } else {
+        result.push(undefined);
+      }
       return time;
     }, 0);
     return result.reverse();
@@ -64,18 +70,19 @@ export function getCue(path: string) {
     const cueSheet = parse(path);
     return cueSheet;
   } catch (e) {
-    console.error("getCue", e);
+    console.error(`getCue ${path}`, e);
   }
 }
-type IAudioMetadata = ReturnType<typeof musicMeta.parseBuffer>;
+type IAudioMetadata = ReturnType<typeof parseBuffer>;
 export async function getID3(
   path: string,
 ): Promise<IAudioMetadata | undefined> {
   try {
     const data = await Deno.readFile(path);
-    return await musicMeta.parseBuffer(data);
+    return await parseBuffer(data);
   } catch (e) {
-    console.error("getID3", e);
+    console.error(`getID3 ${path}`, e);
+    return undefined;
   }
 }
 export type ItemType = TrackItemType | SingleItemType;
@@ -104,7 +111,7 @@ interface BaseItemType {
   album?: string;
   albumartist?: string;
   year?: number;
-  picture?: musicMeta.IPicture[];
+  picture?: IPicture[];
   duration?: string;
   sampleRate?: number;
 }
@@ -165,14 +172,14 @@ export async function mapReadDir(
                         `${timeMap.min * 60 + timeMap.sec}.${timeMap.frame}`,
                       );
                     }
-                    result.push({
+                    const song = {
                       ...id3?.format,
                       ...id3?.common,
                       type: "tracks",
                       url: audioFile,
                       title: track.title,
                       artist: track.performer || cueSheet.performer ||
-                        id3?.common.albumartist,
+                        id3?.common.artist,
                       album: cueSheet.title,
                       albumartist: cueSheet.performer ||
                         id3?.common.albumartist,
@@ -183,7 +190,12 @@ export async function mapReadDir(
                       },
                       disk: id3 ? id3.common.disk : { no: null, of: null },
                       start: startTime,
-                    });
+                    };
+                    if (song.album) {
+                      result.push(song);
+                    } else {
+                      console.error(song.title, " not album");
+                    }
                   }
                 }
               }
@@ -198,13 +210,17 @@ export async function mapReadDir(
             if (id3Result.format.duration) {
               duration = msToTime(id3Result.format.duration * 1000);
             }
-            result.push({
-              type: "single",
-              url: denoPath.join(path, file.name),
-              ...id3Result.common,
-              ...id3Result.format,
-              duration,
-            });
+            if (id3Result.common.album) {
+              result.push({
+                type: "single",
+                url: denoPath.join(path, file.name),
+                ...id3Result.common,
+                ...id3Result.format,
+                duration,
+              });
+            } else {
+              console.error(id3Result.common.title, " not album");
+            }
           }
         }
       }

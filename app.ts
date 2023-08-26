@@ -7,18 +7,26 @@ import {
 import config from "./config/config.json" assert { type: "json" };
 import { setResponseBody } from "./utils/util.ts";
 import db from "./dbs/connect.ts";
+import _ from "npm:lodash@4.17.21";
 export type AppState = {
   session: Session;
 };
 
 const app = new Application<AppState>();
 
+async function pingDB() {
+  try {
+    await db.ping();
+  } catch (e) {
+    console.error(e);
+    await db.connect();
+  }
+}
+
+const pingDBThrottle = _.throttle(pingDB, 28800 * 1000);
 app.use(async (ctx, next) => {
   try {
-    db.ping().catch(async (e) => {
-      console.log(e);
-      await db.connect();
-    });
+    await pingDBThrottle();
     await next();
     if (ctx.response.status >= 400 || ctx.response.status < 200) {
       console.log(ctx.request.url.toString());
@@ -32,7 +40,7 @@ app.use(async (ctx, next) => {
 app.use(
   //@ts-ignore
   Session.initMiddleware(new MemoryStore(), {
-    cookieSetOptions: { sameSite: "none", httpOnly: true, secure: true },
+    cookieSetOptions: { httpOnly: true },
   }),
 );
 

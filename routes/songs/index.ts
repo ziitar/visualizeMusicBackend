@@ -77,7 +77,7 @@ async function createSong(
     await db.commit();
   } catch (e) {
     await db.rollback();
-    throw e;
+    console.error(title, e);
   }
 }
 async function storeSong(songs: SaveType[]) {
@@ -93,67 +93,72 @@ async function storeSong(songs: SaveType[]) {
       diskTotal,
       picUrl,
     } = song;
-    const albumartistList = splitArtist(albumartist || artist || undefined);
-    const artistModels = (await Promise.all(
-      albumartistList.map(async (artist) => {
-        const [albumartists] = await Artist.query({ "name": artist });
-        if (albumartists.length) {
-          return albumartists;
-        } else {
-          const [rows] = await Artist.create({ name: artist });
-          return [{ id: rows.insertId, name: artist }];
-        }
-      }),
-    )).flat();
-    let albumId: number;
-    let [albumModel] = await Album.query({ "name": album });
-    if (
-      !albumModel.length || (type === "tracks" && diskTotal && diskTotal > 1 &&
-        diskNo != albumModel[0].disk_no)
-    ) {
-      const [rows] = await Album.create({
-        name: album,
-        image: picUrl,
-        trackTotal: trackTotal,
-        diskNo,
-        diskTotal,
-        year,
-      });
-      albumId = rows.insertId;
-    } else {
-      albumId = albumModel[0].id;
-    }
-    await Promise.all(
-      artistModels.map(async (artistModel) => {
-        const [albumArtistModel] = await AlbumArtist.query({
-          albumId: albumId,
-          artistId: artistModel.id,
+    try {
+      const albumartistList = splitArtist(albumartist || artist || undefined);
+      const artistModels = (await Promise.all(
+        albumartistList.map(async (artist) => {
+          const [albumartists] = await Artist.query({ "name": artist });
+          if (albumartists.length) {
+            return albumartists;
+          } else {
+            const [rows] = await Artist.create({ name: artist });
+            return [{ id: rows.insertId, name: artist }];
+          }
+        }),
+      )).flat();
+      let albumId: number;
+      let [albumModel] = await Album.query({ "name": album });
+      if (
+        !albumModel.length ||
+        (type === "tracks" && diskTotal && diskTotal > 1 &&
+          diskNo != albumModel[0].disk_no)
+      ) {
+        const [rows] = await Album.create({
+          name: album,
+          image: picUrl,
+          trackTotal: trackTotal,
+          diskNo,
+          diskTotal,
+          year,
         });
-        if (!albumArtistModel.length) {
-          await AlbumArtist.create({
+        albumId = rows.insertId;
+      } else {
+        albumId = albumModel[0].id;
+      }
+      await Promise.all(
+        artistModels.map(async (artistModel) => {
+          const [albumArtistModel] = await AlbumArtist.query({
             albumId: albumId,
             artistId: artistModel.id,
           });
-        }
-      }),
-    );
-    const artistList = splitArtist(artist || undefined);
-    const artistModels_2 = (await Promise.all(
-      artistList.map(async (artist) => {
-        const [artists] = await Artist.query({ "name": artist });
-        if (artists.length) {
-          return artists;
-        } else {
-          const [rows] = await Artist.create({ name: artist });
-          return [{ id: rows.insertId, name: artist }];
-        }
-      }),
-    )).flat();
-    await createSong(
-      song,
-      albumId,
-      artistModels_2.map((item) => item.id),
-    );
+          if (!albumArtistModel.length) {
+            await AlbumArtist.create({
+              albumId: albumId,
+              artistId: artistModel.id,
+            });
+          }
+        }),
+      );
+      const artistList = splitArtist(artist || undefined);
+      const artistModels_2 = (await Promise.all(
+        artistList.map(async (artist) => {
+          const [artists] = await Artist.query({ "name": artist });
+          if (artists.length) {
+            return artists;
+          } else {
+            const [rows] = await Artist.create({ name: artist });
+            return [{ id: rows.insertId, name: artist }];
+          }
+        }),
+      )).flat();
+      await createSong(
+        song,
+        albumId,
+        artistModels_2.map((item) => item.id),
+      );
+    } catch (e) {
+      console.error(song.title, e);
+    }
   }
 }
 router.put("/store", async (ctx, next) => {
