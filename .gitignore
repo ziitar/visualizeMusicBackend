@@ -1,4 +1,8 @@
 config/*
 assets/*
 tmp/*
+!config/.gitkeep
+!assets/.gitkeep
+!assets/music-head.jpg
+!tmp/.gitkeep
 utils/music/result.json
