@@ -18,8 +18,43 @@ export function msToTime(duration: number): string {
 export function formatFileName(name?: string) {
   return name?.replace(/[\\/:?''<>|]/g, "_");
 }
+const excludeArtist = [
+  "K/DA",
+];
 export function splitArtist(str?: string) {
-  return str?.replace(/\s?([,\/\&])\s?/, "$1").split(/\B[,\/&]\B/) || [];
+  let tmp = str?.trimEnd().trimStart() || "";
+  const result: string[] = [];
+  excludeArtist.forEach((exc) => {
+    const reg = new RegExp(`(${exc})`);
+    const match = tmp.match(reg);
+    if (match !== null) {
+      result.push(match[1]);
+      tmp = tmp.replace(reg, "");
+    }
+  });
+  return result.concat(
+    tmp.replace(
+      /\s?([,:+×\/\&]|feat\.|featuring)\s?/g,
+      "$1",
+    ).split(
+      /[,:+×\/&]|feat\.|featuring/g,
+    ) || [],
+  ).filter((item) => item !== "");
+}
+export type ArtistType = {
+  name: string;
+  alias?: string;
+};
+export function splitArtistWithAlias(str: string) {
+  const reg = /[\(（](CV:)?(.+)[\)）]/;
+  const match = str.match(reg);
+  const artist: ArtistType = {
+    name: str.replace(reg, ""),
+  };
+  if (match) {
+    artist.alias = match[2];
+  }
+  return artist;
 }
 export function getTracksDuration(
   tracks: Tracks,
@@ -172,7 +207,7 @@ export async function mapReadDir(
                         `${timeMap.min * 60 + timeMap.sec}.${timeMap.frame}`,
                       );
                     }
-                    const song = {
+                    const song: ItemType = {
                       ...id3?.format,
                       ...id3?.common,
                       type: "tracks",

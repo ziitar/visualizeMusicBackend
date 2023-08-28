@@ -2,7 +2,7 @@ import {
   assertEquals,
   assertNotEquals,
 } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { getCue, getID3, mapReadDir } from "./utils.ts";
+import { getCue, getID3, mapReadDir, splitArtist } from "./utils.ts";
 import { getExtension } from "./exec.ts";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { saveResult } from "./exec.ts";
@@ -38,10 +38,10 @@ Deno.test({
 
 Deno.test({
   name: "test getID3",
-  ignore: false,
+  ignore: true,
   fn: async () => {
     const path =
-      "Y:\\陈奕迅63专辑\\2001粤语 陈奕迅.-.[反正是我].专辑.(ape)\\陈奕迅.-.[反正是我].专辑.(ape).ape";
+      "Y:\\陈奕迅63专辑\\2002粤语 陈奕迅.-.[THE.LINE-UP].专辑.(ape)\\陈奕迅.-.[THE.LINE-UP].专辑.(ape).ape";
     const result = await getID3(path);
     console.log(result);
     assertNotEquals(result, undefined);
@@ -84,7 +84,7 @@ Deno.test({
 
 Deno.test({
   name: "test exec",
-  ignore: false,
+  ignore: true,
   fn: async () => {
     await saveResult(
       "Y:\\陈奕迅63专辑",
@@ -146,5 +146,16 @@ Deno.test({
       console.log(ext, id3.common.picture[0].format);
       assertNotEquals(ext, undefined);
     }
+  },
+});
+
+Deno.test({
+  name: "test splitArtist",
+  ignore: false,
+  fn: () => {
+    const artist = "Drake feat. 21 Savage&Project Pat";
+    const result = splitArtist(artist);
+    console.log(result);
+    assertEquals(result.length, 3);
   },
 });

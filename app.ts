@@ -40,18 +40,27 @@ app.use(async (ctx, next) => {
 app.use(
   //@ts-ignore
   Session.initMiddleware(new MemoryStore(), {
-    cookieSetOptions: { httpOnly: true },
+    cookieSetOptions: {
+      httpOnly: true,
+    },
   }),
 );
 
 app.use(async (ctx, next) => {
   await next();
-  const origin = ctx.request.headers.get("Origin");
-  if (origin && config.allowedHost.includes(origin)) {
+  if (config.allowedHost.includes("*")) {
     ctx.response.headers.set(
       "Access-Control-Allow-Origin",
-      origin,
+      "*",
     );
+  } else {
+    const origin = ctx.request.headers.get("Origin");
+    if (origin && config.allowedHost.includes(origin)) {
+      ctx.response.headers.set(
+        "Access-Control-Allow-Origin",
+        origin,
+      );
+    }
   }
   ctx.response.headers.set(
     "Access-Control-Allow-Methods",

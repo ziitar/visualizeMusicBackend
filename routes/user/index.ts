@@ -16,6 +16,7 @@ router.get("/user", async (ctx, next) => {
   if (isTrulyValue(userId)) {
     const [user] = await User.query(
       { id: userId },
+      "and",
       "exclude",
       ["password"],
     );
@@ -84,6 +85,7 @@ router.post("/login", async (ctx, next) => {
   if (isTrulyArg(username, password)) {
     const [user] = await User.query(
       { username, password },
+      "and",
       "exclude",
       ["password"],
     );

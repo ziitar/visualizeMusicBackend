@@ -13,7 +13,11 @@ import { helpers, Router } from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
 import { getExtension, saveResult, SaveType } from "../../utils/music/exec.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
-import { formatFileName, splitArtist } from "../../utils/music/utils.ts";
+import {
+  formatFileName,
+  splitArtist,
+  splitArtistWithAlias,
+} from "../../utils/music/utils.ts";
 import { isTrulyValue, setResponseBody } from "../../utils/util.ts";
 import config from "../../config/config.json" assert { type: "json" };
 
@@ -97,12 +101,16 @@ async function storeSong(songs: SaveType[]) {
       const albumartistList = splitArtist(albumartist || artist || undefined);
       const artistModels = (await Promise.all(
         albumartistList.map(async (artist) => {
-          const [albumartists] = await Artist.query({ "name": artist });
+          const artistObj = splitArtistWithAlias(artist);
+          const [albumartists] = await Artist.query({
+            "name": artistObj.name,
+            "alias": artistObj.alias || artistObj.name,
+          }, "or");
           if (albumartists.length) {
             return albumartists;
           } else {
-            const [rows] = await Artist.create({ name: artist });
-            return [{ id: rows.insertId, name: artist }];
+            const [rows] = await Artist.create(artistObj);
+            return [{ id: rows.insertId, name: artistObj.name }];
           }
         }),
       )).flat();
@@ -111,7 +119,7 @@ async function storeSong(songs: SaveType[]) {
       if (
         !albumModel.length ||
         (type === "tracks" && diskTotal && diskTotal > 1 &&
-          diskNo != albumModel[0].disk_no)
+          diskNo != albumModel[0].diskNo)
       ) {
         const [rows] = await Album.create({
           name: album,
@@ -142,12 +150,16 @@ async function storeSong(songs: SaveType[]) {
       const artistList = splitArtist(artist || undefined);
       const artistModels_2 = (await Promise.all(
         artistList.map(async (artist) => {
-          const [artists] = await Artist.query({ "name": artist });
+          const artistObj = splitArtistWithAlias(artist);
+          const [artists] = await Artist.query({
+            "name": artistObj.name,
+            "alias": artistObj.alias || artistObj.name,
+          }, "or");
           if (artists.length) {
             return artists;
           } else {
-            const [rows] = await Artist.create({ name: artist });
-            return [{ id: rows.insertId, name: artist }];
+            const [rows] = await Artist.create(artistObj);
+            return [{ id: rows.insertId, name: artistObj.name }];
           }
         }),
       )).flat();
@@ -243,9 +255,9 @@ router.get("/search", async (ctx, next) => {
   if (artist) {
     [artists] = await db.execute<RowDataPacket[]>(
       `
-      select id from ${Artist.table} where ${Artist.table}.name like CONCAT('%', ?, '%')
+      select id from ${Artist.table} where ${Artist.table}.name like CONCAT('%', ?, '%') or ${Artist.table}.alias like CONCAT('%', ?, '%')
     `,
-      [artist],
+      [artist, artist],
     );
   }
   if (artists && !artists.length) {

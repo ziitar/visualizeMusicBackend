@@ -30,6 +30,7 @@ function recordToArrays(fieldsAndValues: Record<string, any>) {
 export function queryFactory(model: Model) {
   async function query(
     fieldsAndValues: Record<string, any>,
+    operation: "and" | "or" = "and",
     type: "include" | "exclude" = "include",
     fields = model.fields,
   ) {
@@ -42,7 +43,7 @@ export function queryFactory(model: Model) {
       const [keys, values] = recordToArrays(fieldsAndValues);
       return await db.execute<RowDataPacket[]>(
         `select ${selectFields.join(",") || "*"} from ${model.table} where ${
-          keys.map((item) => item + " = ?").join(" and ")
+          keys.map((item) => item + " = ?").join(` ${operation} `)
         }`,
         values,
       );

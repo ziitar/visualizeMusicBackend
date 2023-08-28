@@ -42,6 +42,7 @@ await db.query(`
   (
     id int not null primary key  AUTO_INCREMENT, 
     name varchar(255) not null,
+    alias varchar(255) not null,
     created_at datetime DEFAULT CURRENT_TIMESTAMP,
     updated_at datetime DEFAULT CURRENT_TIMESTAMP
   )
@@ -85,7 +86,7 @@ await db.query(`
     duration varchar(255),
     track_no int,
     lossless tinyint(1),
-    sample_rate int,
+    sample_rate bigint,
     start float(8,2),
     bitrate int,
     album_id int not null,
