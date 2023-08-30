@@ -81,14 +81,16 @@ const getResource: RouterMiddleware<
       }
     } else {
       const boundary = crypto.randomUUID().replace(/.+-(\w+)$/, "$1");
-      const body = (await Promise.all(ranges.map(async (byteRange) => {
+      let body = "";
+      for await (const byteRange of ranges) {
         const uint8Array = new Uint8Array(byteRange.end - byteRange.start + 1);
         await Deno.seek(res.rid, byteRange.start, Deno.SeekMode.Start);
         await res.read(uint8Array);
-        return `--${boundary}\r\nContent-Type: ${contentType}\r\nContent-Range: bytes ${byteRange.start}-${byteRange.end}/${fileInfo.size}\r\n\r\n${
-          uint8Array.join(" ")
-        }\r\n`;
-      }))).join("");
+        body +=
+          `--${boundary}\r\nContent-Type: ${contentType}\r\nContent-Range: bytes ${byteRange.start}-${byteRange.end}/${fileInfo.size}\r\n\r\n${
+            uint8Array.join(" ")
+          }\r\n`;
+      }
       ctx.response.body = `${body}--${boundary}--`;
       ctx.response.headers.set(
         "Content-Type",
@@ -125,6 +127,22 @@ router.get("/proxy/:url", async (ctx, next) => {
   ctx.state.url = url;
   await next();
 }, getResource);
+
+router.get("/net/proxy/:url/:methed", async (ctx, next) => {
+  const methed = await ctx.params.methed;
+  let url = await ctx.params.url;
+  url = decodeURIComponent(url);
+  const res = await fetch(url, {
+    method: methed || "get",
+    headers: ctx.request.headers,
+  });
+  ctx.response.status = res.status;
+  ctx.response.body = res.body;
+  res.headers.forEach((value, key) => {
+    ctx.response.headers.set(key, value);
+  });
+  await next();
+});
 
 router.get("/decode/:url", async (ctx, next) => {
   const {

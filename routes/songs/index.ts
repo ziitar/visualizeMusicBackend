@@ -20,6 +20,7 @@ import {
 } from "../../utils/music/utils.ts";
 import { isTrulyValue, setResponseBody } from "../../utils/util.ts";
 import config from "../../config/config.json" assert { type: "json" };
+import { PoolConnection } from "npm:mysql2@3.6.0/promise";
 
 const router = new Router();
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
@@ -28,6 +29,7 @@ async function createSong(
   song: SaveType,
   albumId: number,
   artistIds: number[],
+  conn: PoolConnection,
 ) {
   const {
     type,
@@ -40,7 +42,7 @@ async function createSong(
     start,
     bitrate,
   } = song;
-  await db.beginTransaction();
+  await conn.beginTransaction();
   try {
     const [songModel] = await Song.create({
       type,
@@ -53,21 +55,21 @@ async function createSong(
       start,
       bitrate,
       albumId,
-    });
+    }, conn);
     for await (const artistId of artistIds) {
       await SongArtist.create({
         songId: songModel.insertId,
         artistId: artistId,
-      });
+      }, conn);
     }
     let sheetId;
-    let [rows] = await Sheet.query({ id: 1 });
+    let [rows] = await Sheet.query({ id: 1 }, conn);
     if (!rows.length) {
       const [rows] = await Sheet.create({
         id: 1,
         sheetName: "系统歌单",
         userId: 1,
-      });
+      }, conn);
       if (rows.affectedRows) {
         sheetId = rows.insertId;
       }
@@ -77,14 +79,15 @@ async function createSong(
     await SongSheet.create({
       songId: songModel.insertId,
       sheetId: sheetId,
-    });
-    await db.commit();
+    }, conn);
+    await conn.commit();
   } catch (e) {
-    await db.rollback();
+    await conn.rollback();
     console.error(title, e);
   }
 }
 async function storeSong(songs: SaveType[]) {
+  const conn = await db.getConnection();
   for await (const song of songs) {
     const {
       type,
@@ -99,23 +102,26 @@ async function storeSong(songs: SaveType[]) {
     } = song;
     try {
       const albumartistList = splitArtist(albumartist || artist || undefined);
-      const artistModels = (await Promise.all(
-        albumartistList.map(async (artist) => {
-          const artistObj = splitArtistWithAlias(artist);
-          const [albumartists] = await Artist.query({
+      const artistModels = [];
+      for await (const artist of albumartistList) {
+        const artistObj = splitArtistWithAlias(artist);
+        const [albumartists] = await Artist.query(
+          {
             "name": artistObj.name,
             "alias": artistObj.alias || artistObj.name,
-          }, "or");
-          if (albumartists.length) {
-            return albumartists;
-          } else {
-            const [rows] = await Artist.create(artistObj);
-            return [{ id: rows.insertId, name: artistObj.name }];
-          }
-        }),
-      )).flat();
+          },
+          conn,
+          "or",
+        );
+        if (albumartists.length) {
+          artistModels.push(albumartists[0]);
+        } else {
+          const [rows] = await Artist.create(artistObj, conn);
+          artistModels.push({ id: rows.insertId, name: artistObj.name });
+        }
+      }
       let albumId: number;
-      let [albumModel] = await Album.query({ "name": album });
+      let [albumModel] = await Album.query({ "name": album }, conn);
       if (
         !albumModel.length ||
         (type === "tracks" && diskTotal && diskTotal > 1 &&
@@ -128,50 +134,53 @@ async function storeSong(songs: SaveType[]) {
           diskNo,
           diskTotal,
           year,
-        });
+        }, conn);
         albumId = rows.insertId;
       } else {
         albumId = albumModel[0].id;
       }
-      await Promise.all(
-        artistModels.map(async (artistModel) => {
-          const [albumArtistModel] = await AlbumArtist.query({
+      for await (const artistModel of artistModels) {
+        const [albumArtistModel] = await AlbumArtist.query({
+          albumId: albumId,
+          artistId: artistModel.id,
+        }, conn);
+        if (!albumArtistModel.length) {
+          await AlbumArtist.create({
             albumId: albumId,
             artistId: artistModel.id,
-          });
-          if (!albumArtistModel.length) {
-            await AlbumArtist.create({
-              albumId: albumId,
-              artistId: artistModel.id,
-            });
-          }
-        }),
-      );
+          }, conn);
+        }
+      }
       const artistList = splitArtist(artist || undefined);
-      const artistModels_2 = (await Promise.all(
-        artistList.map(async (artist) => {
-          const artistObj = splitArtistWithAlias(artist);
-          const [artists] = await Artist.query({
+      const artistModels_2 = [];
+      for await (const artist of artistList) {
+        const artistObj = splitArtistWithAlias(artist);
+        const [artists] = await Artist.query(
+          {
             "name": artistObj.name,
             "alias": artistObj.alias || artistObj.name,
-          }, "or");
-          if (artists.length) {
-            return artists;
-          } else {
-            const [rows] = await Artist.create(artistObj);
-            return [{ id: rows.insertId, name: artistObj.name }];
-          }
-        }),
-      )).flat();
+          },
+          conn,
+          "or",
+        );
+        if (artists.length) {
+          artistModels_2.push(artists[0]);
+        } else {
+          const [rows] = await Artist.create(artistObj, conn);
+          artistModels_2.push({ id: rows.insertId, name: artistObj.name });
+        }
+      }
       await createSong(
         song,
         albumId,
         artistModels_2.map((item) => item.id),
+        conn,
       );
     } catch (e) {
       console.error(song.title, e);
     }
   }
+  conn.release();
 }
 router.put("/store", async (ctx, next) => {
   await saveResult(config.source, config.exclude);
@@ -193,56 +202,80 @@ router.get("/", async (ctx, next) => {
   setResponseBody(ctx, 200, result, "查询成功");
   await next();
 });
-
-export async function getSongsArtist(songs: RowDataPacket[]) {
-  return await Promise.all(songs.map(async (song) => {
-    const [artist] = await db.execute<RowDataPacket[]>(
-      `
-      select ${Artist.table}.name from ${SongArtist.table} 
-      join ${Artist.table} on ${Artist.table}.id = ${SongArtist.table}.artist_id 
-      where ${SongArtist.table}.song_id = ?
-    `,
-      [song.id],
+let songArtistMap: Map<number, string[]> | undefined;
+export async function getSongsArtist(
+  songs: RowDataPacket[],
+  conn: PoolConnection,
+) {
+  if (!songArtistMap) {
+    const [rows]: [RowDataPacket[]] = await conn.query(
+      `select ${
+        SongArtist.getFields("include", ["songId"]).join("")
+      }, ${Artist.table}.name from ${SongArtist.table} join ${Artist.table} on ${Artist.table}.id = ${SongArtist.table}.artist_id`,
     );
-    return {
-      ...song,
-      artist: artist.map((item) => item.name),
-    };
+    songArtistMap = rows.reduce((result, row) => {
+      let value: string[] | undefined = result.get(row.songId);
+      if (value) {
+        value.push(row.name);
+      } else {
+        value = [row.name];
+      }
+      result.set(row.songId, value);
+      return result;
+    }, new Map<number, string[]>());
+  }
+  return songs.map((song) => ({
+    ...song,
+    artist: songArtistMap!.get(song.id),
   }));
 }
-
-router.get("/all", async (ctx, next) => {
-  const [artists] = await db.query<RowDataPacket[]>(`
-    select ${Artist.table}.name as albumartist, ${Artist.table}.id as albumartistId from ${AlbumArtist.table}
-    join ${Artist.table} on ${Artist.table}.id = ${AlbumArtist.table}.artist_id
-    group by ${AlbumArtist.table}.artist_id
-  `);
-  const result = await Promise.all(artists.map(async (albummartist) => {
-    const [albums] = await db.query<RowDataPacket[]>(
-      `
-      select ${Album.getFields().join(", ")} from ${AlbumArtist.table} 
-      join ${Album.table} on ${AlbumArtist.table}.album_id = ${Album.table}.id
-      where ${AlbumArtist.table}.artist_id = ?
-    `,
-      [albummartist.albumartistId],
+let albumArtistMap: Map<number, string[]> | undefined;
+export async function getAlbumsArtist(
+  conn: PoolConnection,
+) {
+  if (!albumArtistMap) {
+    const [rows]: [RowDataPacket[]] = await conn.query(
+      `select ${
+        AlbumArtist.getFields("include", ["albumId"]).join("")
+      }, ${Artist.table}.name from ${AlbumArtist.table} join ${Artist.table} on ${Artist.table}.id = ${AlbumArtist.table}.artist_id`,
     );
-    const albumSong = await Promise.all(albums.map(async (album) => {
-      const [songs] = await Song.query({
-        album_id: album.id,
-      });
-      const songArtist = await getSongsArtist(songs);
-      return {
-        album: album,
-        songs: songArtist,
-      };
-    }));
-
-    return {
-      albums: albumSong,
-      albummartist: albummartist.albummartist,
-    };
+    albumArtistMap = rows.reduce((result, row) => {
+      let value: string[] | undefined = result.get(row.albumId);
+      if (value) {
+        value.push(row.name);
+      } else {
+        value = [row.name];
+      }
+      result.set(row.albumId, value);
+      return result;
+    }, new Map<number, string[]>());
+  }
+  return albumArtistMap;
+}
+router.get("/all", async (ctx, next) => {
+  const conn = await db.getConnection();
+  let [albums] = await Album.query({}, conn);
+  const albumArtistMapClone = await getAlbumsArtist(conn);
+  albums = albums.map((item) => ({
+    ...item,
+    albumartist: albumArtistMapClone.get(item.id),
   }));
-  setResponseBody(ctx, 200, result);
+  const albumSongs = [];
+  for await (const album of albums) {
+    const [songs] = await Song.query({
+      album_id: album.id,
+    }, conn);
+    const songArtist = await getSongsArtist(songs, conn);
+    albumSongs.push({
+      album: {
+        ...album,
+        albumartist: albumArtistMap?.get(album.id),
+      },
+      songs: songArtist,
+    });
+  }
+  db.releaseConnection(conn);
+  setResponseBody(ctx, 200, albumSongs);
   await next();
 });
 
@@ -251,9 +284,9 @@ router.get("/search", async (ctx, next) => {
     ctx,
   );
   let artists, albums, result, values: unknown[] = [], total;
-
+  const conn = await db.getConnection();
   if (artist) {
-    [artists] = await db.execute<RowDataPacket[]>(
+    [artists] = await conn.execute(
       `
       select id from ${Artist.table} where ${Artist.table}.name like CONCAT('%', ?, '%') or ${Artist.table}.alias like CONCAT('%', ?, '%')
     `,
@@ -265,7 +298,7 @@ router.get("/search", async (ctx, next) => {
   }
   if (album) {
     if (artists) {
-      [albums] = await db.execute<RowDataPacket[]>(
+      [albums] = await conn.execute(
         `
         select ${Album.table}.id from ${Album.table} 
         join ${AlbumArtist.table} on ${AlbumArtist.table}.album_id = ${Album.table}.id
@@ -275,7 +308,7 @@ router.get("/search", async (ctx, next) => {
         [artists.map((item) => item.id).join(", "), album],
       );
     } else {
-      [albums] = await db.execute<RowDataPacket[]>(
+      [albums] = await conn.execute(
         `
         select id from ${Album.table} where ${Album.table}.name like CONCAT('%', ?, '%')
       `,
@@ -315,11 +348,11 @@ router.get("/search", async (ctx, next) => {
   if (isTrulyValue(title)) {
     values = values.concat(title);
   }
-  [total] = await db.execute<RowDataPacket[]>(
+  [total] = await conn.execute(
     `select count(*) ${execute}`,
     values,
   );
-  [result] = await db.execute<RowDataPacket[]>(
+  [result] = await conn.execute(
     `
     select 
       ${Song.getFields().join(", ")},
@@ -330,7 +363,13 @@ router.get("/search", async (ctx, next) => {
     `,
     values,
   );
-  result = await getSongsArtist(result);
+  const albumArtistMapClone = await getAlbumsArtist(conn);
+  result = result.map((item) => ({
+    ...item,
+    albumartist: albumArtistMapClone.get(item.albumId),
+  }));
+  result = await getSongsArtist(result, conn);
+  conn.release();
   setResponseBody(
     ctx,
     200,
@@ -412,16 +451,19 @@ router.post("/create", async (ctx, next) => {
 
 router.delete("/:id", async (ctx, next) => {
   const id = ctx.params.id;
-  const [exsit] = await Song.query({ id });
+  const conn = await db.getConnection();
+  const [exsit] = await Song.query({ id }, conn);
   if (exsit.length) {
     await db.beginTransaction();
     try {
-      await Song.deleteFn({ id });
-      await SongArtist.deleteFn({ songId: id });
-      await SongSheet.deleteFn({ songId: id });
+      await Song.deleteFn({ id }, conn);
+      await SongArtist.deleteFn({ songId: id }, conn);
+      await SongSheet.deleteFn({ songId: id }, conn);
       await db.commit();
+      conn.release();
     } catch (e) {
       await db.rollback();
+      conn.release();
       throw e;
     }
     setResponseBody(ctx, 200, true, "删除成功");

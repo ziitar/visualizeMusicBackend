@@ -1,7 +1,6 @@
 import { parse } from "npm:cue-parser@0.3.0";
 import { IPicture, parseBuffer } from "npm:music-metadata@8.1.4";
 import * as denoPath from "https://deno.land/std@0.184.0/path/mod.ts";
-import config from "../../config/config.json" assert { type: "json" };
 export function msToTime(duration: number): string {
   const seconds = Math.floor((duration / 1000) % 60),
     minutes = Math.floor((duration / (1000 * 60)) % 60),

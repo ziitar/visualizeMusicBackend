@@ -1,6 +1,8 @@
 import { randomPassword } from "../utils/util.ts";
-import { db, User } from "./index.ts";
+import { db as pool, User } from "./index.ts";
 import { Md5 } from "https://deno.land/std@0.119.0/hash/md5.ts";
+
+const db = await pool.getConnection();
 
 await db.query(`drop table if EXISTS song_sheet`);
 await db.query(`drop table if EXISTS song_artist`);
@@ -120,6 +122,8 @@ await db.query(`
     constraint SONG_SHEET_SHEET_ID_FK foreign key (sheet_id) references sheet(id)
   )
 `);
+
+db.release();
 const md5 = new Md5();
 const password = randomPassword(8);
 const [row] = await User.create({
@@ -129,5 +133,4 @@ const [row] = await User.create({
 if (row.affectedRows) {
   console.log("生成admin账户密码", password);
 }
-
-db.end();
+pool.end();

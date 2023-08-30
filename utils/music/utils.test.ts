@@ -152,10 +152,12 @@ Deno.test({
 Deno.test({
   name: "test splitArtist",
   ignore: false,
-  fn: () => {
-    const artist = "Drake feat. 21 Savage&Project Pat";
+  fn: async () => {
+    const path = "Y:\\BigYear大年 & Taisheng Music\\她不是\\她不是.mp3";
+    const id3 = await getID3(path);
+    const artist = id3?.common.artist;
     const result = splitArtist(artist);
-    console.log(result);
-    assertEquals(result.length, 3);
+    console.log(result, artist, id3?.common);
+    assertEquals(result.length, 2);
   },
 });
