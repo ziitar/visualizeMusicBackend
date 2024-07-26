@@ -1,6 +1,6 @@
 import { createPool } from "npm:mysql2@3.6.0/promise";
 
-import connectInfo from "../config/connect.json" assert { type: "json" };
+import connectInfo from "../config/connect.json" with { type: "json" };
 
 const db = await createPool({
   host: connectInfo.host,

@@ -24,10 +24,20 @@ export type SaveType = Nullable<
     bitrate?: number;
   }
 >;
+/**
+ * 异步保存目录扫描结果到文件。
+ * @param path 需要扫描的目录路径。
+ * @param exclude 需要排除的文件或目录列表。
+ */
 export async function saveResult(path: string, exclude: string[]) {
+  // 获取目录扫描结果
   const result = await mapReadDir(path, exclude);
+  // 定义保存数组，用于存储处理后的数据
   const saveArr: SaveType[] = [];
+  
+  // 遍历扫描结果中的每个项目
   for (const item of result) {
+    // 解构每个项目的信息
     const {
       type,
       url,
@@ -43,9 +53,13 @@ export async function saveResult(path: string, exclude: string[]) {
       lossless,
       sampleRate,
     } = item;
+    // 初始化封面图片URL
     let picUrl = "";
+    
     try {
+      // 如果项目包含封面图片信息
       if (picture) {
+        // 构建封面图片的存储路径
         picUrl = denoPath.join(
           __dirname,
           "../../assets",
@@ -53,6 +67,7 @@ export async function saveResult(path: string, exclude: string[]) {
             getExtension(picture[0].format)
           }`,
         );
+        // 检查封面图片是否已存在，如果不存在，则写入文件系统
         const exist = await exists(picUrl);
         if (!exist) {
           await Deno.writeFile(
@@ -61,6 +76,7 @@ export async function saveResult(path: string, exclude: string[]) {
           );
         }
       } else {
+        // 定义备选封面文件名列表
         const mb: string[] = [
           "Cover.jpg",
           "cover.jpg",
@@ -77,12 +93,14 @@ export async function saveResult(path: string, exclude: string[]) {
           "Back.png",
           "back.png",
         ];
+        // 循环查找并处理存在的封面图片
         while (mb.length && picUrl === "") {
           const fileName = mb.shift();
           const path = denoPath.join(
             denoPath.dirname(item.url),
             fileName || "",
           );
+          // 如果找到封面图片，复制到指定目录
           if (await exists(path)) {
             picUrl = denoPath.join(
               __dirname,
@@ -99,8 +117,11 @@ export async function saveResult(path: string, exclude: string[]) {
         }
       }
     } catch (e) {
+      // 如果在处理图片过程中发生错误，打印错误信息
       console.error("write img", e);
     }
+    
+    // 过滤无效值，并准备数据存储格式
     saveArr.push(filterInvalidValueForStore({
       type,
       url: denoPath.relative(config.source, url),
@@ -121,6 +142,8 @@ export async function saveResult(path: string, exclude: string[]) {
       bitrate: item.type === "single" ? item.bitrate : undefined,
     }));
   }
+  
+  // 使用TextEncoder将处理后的数据编码为UTF-8，并写入到result.json文件中
   const textEncode = new TextEncoder();
   await Deno.writeFile(
     denoPath.join(__dirname, "result.json"),

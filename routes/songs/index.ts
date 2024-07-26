@@ -15,6 +15,7 @@ import { getExtension, saveResult, SaveType } from "../../utils/music/exec.ts";
 import { exists } from "https://deno.land/std@0.184.0/fs/mod.ts";
 import {
   formatFileName,
+  processMusicFileMsg,
   splitArtist,
   splitArtistWithAlias,
 } from "../../utils/music/utils.ts";
@@ -108,7 +109,7 @@ async function storeSong(songs: SaveType[]) {
         const [albumartists] = await Artist.query(
           {
             "name": artistObj.name,
-            "alias": artistObj.alias || artistObj.name,
+            "alias": artistObj.alias || null,
           },
           conn,
           "or",
@@ -158,7 +159,7 @@ async function storeSong(songs: SaveType[]) {
         const [artists] = await Artist.query(
           {
             "name": artistObj.name,
-            "alias": artistObj.alias || artistObj.name,
+            "alias": artistObj.alias || null,
           },
           conn,
           "or",
@@ -183,7 +184,7 @@ async function storeSong(songs: SaveType[]) {
   conn.release();
 }
 router.put("/store", async (ctx, next) => {
-  await saveResult(config.source, config.exclude);
+  await processMusicFileMsg(config.source, config.exclude);
   const result = await Deno.readFile(
     denoPath.join(__dirname, "../../utils/music/result.json"),
   );

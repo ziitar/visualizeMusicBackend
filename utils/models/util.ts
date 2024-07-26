@@ -144,8 +144,7 @@ export function updateFactory(model: Model) {
     const [keys, values] = recordToArrays(fieldsAndValues);
     const [whereKeys, whereValue] = recordToArrays(wheres);
     const result = await db.execute(
-      `
-          update ${model.table} set ${
+      `update ${model.table} set ${
         keys.map((item) => item + " = ?").join(", ") +
         " , updated_at = current_timestamp()"
       } where ${whereKeys.map((item) => item + " = ?").join(` ${operation} `)}

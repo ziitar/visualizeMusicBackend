@@ -7,3 +7,4 @@ tmp/*
 !tmp/.gitkeep
 utils/music/result.json
 deno.lock
+error.log
