@@ -1,9 +1,9 @@
 import { User } from "../../dbs/index.ts";
 import { helpers, Router } from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import { isTrulyArg, isTrulyValue, setResponseBody } from "../../utils/util.ts";
-import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
+import { RouterState } from "../index.d.ts";
 
-const router = new Router<{ session: Session }>();
+const router = new Router<RouterState>();
 
 async function checkName(name: string): Promise<boolean> {
   const [row] = await User.query({ "username": name });

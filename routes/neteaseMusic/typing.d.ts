@@ -20,22 +20,23 @@ export interface UserInfoType {
     playlistBeSubscribedCount: number;
   };
 }
-
+export interface NEMSongsMsgType {
+  id: number;
+  name: string;
+  artists: {
+    id: number;
+    name: string;
+    img1v1Url: string;
+  }[];
+  album: {
+    id: number;
+    name: string;
+  };
+  duration: number;
+}
 export interface SearchSongResultType {
   result: {
-    songs: {
-      id: number;
-      name: string;
-      artists: {
-        id: number;
-        name: string;
-        img1v1Url: string;
-      }[];
-      album: {
-        id: number;
-        name: string;
-      };
-    }[];
+    songs: Array<NEMSongsMsgType>;
     hasMore: boolean;
     songCount: number;
   };
@@ -67,5 +68,29 @@ export interface SongDetailResultType {
       pic_str: string;
       pic: number;
     };
+    no: number;
   }[];
+}
+
+export interface AlbumDetailMsgType extends SongDetailResultType {
+  album: {
+    name: string;
+    size: number;
+    type: string;
+    transNames: string[];
+    description: string;
+    alias: string[];
+    picUrl: string;
+    company: string;
+    publishTime: number;
+    blurPicUrl: string;
+    artist: {
+      picUrl: string;
+      alias: string[];
+      name: string;
+      //翻译用这个
+      trans: string;
+      transNames: string[];
+    };
+  };
 }

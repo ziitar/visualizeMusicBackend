@@ -1,13 +1,14 @@
 import { createPool } from "npm:mysql2@3.6.0/promise";
+import { readConfig } from "../utils/readConfig.ts";
 
-import connectInfo from "../config/connect.json" with { type: "json" };
+const password = await readConfig(Deno.env.get("MYSQL_PASSWORD_PATH"));
 
 const db = await createPool({
-  host: connectInfo.host,
-  port: connectInfo.port,
-  user: connectInfo.user,
-  password: connectInfo.password,
-  database: connectInfo.dataBase,
+  host: Deno.env.get("MYSQL_HOST"),
+  port: Number(Deno.env.get("MYSQL_PORT")),
+  user: Deno.env.get("MYSQL_USER"),
+  password: password,
+  database: Deno.env.get("MYSQL_DATABASE"),
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

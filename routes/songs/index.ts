@@ -22,8 +22,9 @@ import {
 import { isTrulyValue, setResponseBody } from "../../utils/util.ts";
 import config from "../../config/config.json" assert { type: "json" };
 import { PoolConnection } from "npm:mysql2@3.6.0/promise";
+import { RouterState } from "../index.d.ts";
 
-const router = new Router();
+const router = new Router<RouterState>();
 const __dirname = denoPath.dirname(denoPath.fromFileUrl(import.meta.url));
 
 async function createSong(

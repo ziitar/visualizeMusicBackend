@@ -10,7 +10,7 @@
       "request": "launch",
       "type": "node",
       "cwd": "${workspaceFolder}",
-      "runtimeExecutable": "C:\\Program Files\\deno\\deno.EXE",
+      "runtimeExecutable": "D:\\deno\\deno.EXE",
       "runtimeArgs": [
         "run"
       ]
@@ -21,7 +21,7 @@
       "type": "node",
       "program": "${workspaceFolder}/utils/models/",
       "cwd": "${workspaceFolder}",
-      "runtimeExecutable": "C:\\Program Files\\deno\\deno.EXE",
+      "runtimeExecutable": "D:\\deno\\deno.EXE",
       "runtimeArgs": [
         "test",
         "--unstable",
@@ -36,7 +36,7 @@
       "type": "node",
       "program": "${workspaceFolder}/app.ts",
       "cwd": "${workspaceFolder}",
-      "runtimeExecutable": "C:\\Program Files\\deno\\deno.EXE",
+      "runtimeExecutable": "D:\\deno\\deno.EXE",
       "runtimeArgs": [
         "run",
         "--unstable",

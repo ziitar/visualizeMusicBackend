@@ -6,10 +6,10 @@ import {
   isTrulyValue,
   setResponseBody,
 } from "../../utils/util.ts";
-import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
 import { getSongsArtist } from "../songs/index.ts";
+import { RouterState } from "../index.d.ts";
 
-const router = new Router<{ session: Session }>();
+const router = new Router<RouterState>();
 
 router.post("/", async (ctx, next) => {
   const { name, url } = await ctx.request.body({ type: "json" }).value;

@@ -1,6 +1,7 @@
 import Encrypt from "./crypto.js";
 import request from "../request/index.ts";
 import Cookie from "../cookie.ts";
+import { NEMAPIFactory } from "../../routes/neteaseMusic/typing.d.ts";
 
 function randomUserAgent() {
   const userAgentList = [
@@ -63,18 +64,16 @@ export function getBodyType(contentType: string): BodyType {
   return undefined;
 }
 
-export async function createWebAPIRequest<
-  T extends Record<string | number, any>,
+export async function createRequest<
+  T extends NEMAPIFactory<Record<string | number, any>>,
 >(
   host: string,
   path: string,
   data: Record<string | number, any>,
   cookie: string,
   method: string,
-  callback: (res: T, cookie: string) => Promise<void>,
-  errorcallback: (e: Error) => Promise<void>,
   tls?: boolean,
-): Promise<void> {
+): Promise<{ result: T; cookie: string }> {
   const requestCookie = new Cookie(cookie);
   const csrf_token = requestCookie.get("__csrf") || "";
   const cryptoreq = await Encrypt({
@@ -98,40 +97,63 @@ export async function createWebAPIRequest<
     body: body,
   };
 
-  try {
-    const res = await request(options);
-    //格式化 网易云 cookie
-    const setCookie: string | null = res.headers.get("set-cookie");
-    if (setCookie) {
-      const _cookie = new Cookie(
-        setCookie.replace(/Domain=\.music\.163\.com,/g, ""),
-      );
-      ["Path", "Max-Age", "Expires", "Domain", "HTTPOnly"].forEach((key) => {
-        _cookie.deleteByKey(key);
-      });
-      Array.from(_cookie.getAll().entries()).map(([key, value]) => {
-        requestCookie.set(key, value);
-      });
-    }
-    const contentType = res.headers.get("Content-Type");
-    let result;
-    if (contentType) {
-      const fn = getBodyType(contentType);
-      try {
-        if (fn) {
-          result = await res[fn]();
-          if (fn === "text" && /^\{.+\}$/.test(result)) {
-            result = JSON.parse(result);
-          }
-        } else {
-          result = await res.json();
-        }
-      } catch (e) {
-        console.error(e);
+  const res = await request(options);
+  //格式化 网易云 cookie
+  const setCookie: string | null = res.headers.get("set-cookie");
+  if (setCookie) {
+    const _cookie = new Cookie(
+      setCookie.replace(/Domain=\.music\.163\.com,/g, ""),
+    );
+    ["Path", "Max-Age", "Expires", "Domain", "HTTPOnly"].forEach((key) => {
+      _cookie.deleteByKey(key);
+    });
+    Array.from(_cookie.getAll().entries()).map(([key, value]) => {
+      requestCookie.set(key, value);
+    });
+  }
+  const contentType = res.headers.get("Content-Type");
+  let result: T;
+  if (contentType) {
+    const fn = getBodyType(contentType);
+    if (fn) {
+      const text: any = await res[fn]();
+      if (fn === "text" && /^\{.+\}$/.test(text)) {
+        result = JSON.parse(text);
+      } else {
+        result = text;
       }
+    } else {
+      result = await res.json();
     }
-    await callback(result, requestCookie.toString());
-  } catch (e) {
-    await errorcallback(e);
+  } else {
+    result = await res.json();
+  }
+  return { result, cookie: requestCookie.toString() };
+}
+
+export async function createWebAPIRequest<
+  T extends NEMAPIFactory<Record<string | number, any>>,
+>(
+  host: string,
+  path: string,
+  data: Record<string | number, any>,
+  cookie: string,
+  method: string,
+  callback: (res: T, cookie: string) => Promise<void>,
+  errorcallback: (e: Error) => Promise<void>,
+  tls?: boolean,
+): Promise<void> {
+  try {
+    const { result, cookie: resCookie } = await createRequest<T>(
+      host,
+      path,
+      data,
+      cookie,
+      method,
+      tls,
+    );
+    await callback(result, resCookie);
+  } catch (err) {
+    await errorcallback(err);
   }
 }

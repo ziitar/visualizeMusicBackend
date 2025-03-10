@@ -67,7 +67,7 @@ app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.addEventListener("listen", () => {
-  console.log("serve is listen on localhost:7000");
+  console.log("serve is listen on http://localhost:7000");
 });
 
 await app.listen({ port: 7000 });

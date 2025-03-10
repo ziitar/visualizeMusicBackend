@@ -34,7 +34,7 @@ export async function saveResult(path: string, exclude: string[]) {
   const result = await mapReadDir(path, exclude);
   // 定义保存数组，用于存储处理后的数据
   const saveArr: SaveType[] = [];
-  
+
   // 遍历扫描结果中的每个项目
   for (const item of result) {
     // 解构每个项目的信息
@@ -55,7 +55,7 @@ export async function saveResult(path: string, exclude: string[]) {
     } = item;
     // 初始化封面图片URL
     let picUrl = "";
-    
+
     try {
       // 如果项目包含封面图片信息
       if (picture) {
@@ -120,7 +120,7 @@ export async function saveResult(path: string, exclude: string[]) {
       // 如果在处理图片过程中发生错误，打印错误信息
       console.error("write img", e);
     }
-    
+
     // 过滤无效值，并准备数据存储格式
     saveArr.push(filterInvalidValueForStore({
       type,
@@ -142,7 +142,7 @@ export async function saveResult(path: string, exclude: string[]) {
       bitrate: item.type === "single" ? item.bitrate : undefined,
     }));
   }
-  
+
   // 使用TextEncoder将处理后的数据编码为UTF-8，并写入到result.json文件中
   const textEncode = new TextEncoder();
   await Deno.writeFile(

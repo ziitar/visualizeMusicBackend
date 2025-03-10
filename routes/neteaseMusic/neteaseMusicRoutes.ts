@@ -3,12 +3,13 @@ import {
   RouteParams,
   Router,
   RouterContext,
+  RouterMiddleware,
   State,
 } from "https://deno.land/x/oak@v12.2.0/mod.ts";
 import { createWebAPIRequest } from "../../utils/neteaseMusicAPI/util.ts";
-import { Session } from "https://deno.land/x/oak_sessions@v4.1.3/mod.ts";
 import Cookie from "../../utils/cookie.ts";
 import {
+  AlbumDetailMsgType,
   NEMAPIFactory,
   SearchSongResultType,
   SongDetailResultType,
@@ -16,8 +17,9 @@ import {
   UserInfoType,
 } from "./typing.d.ts";
 import { setResponseBody } from "../../utils/util.ts";
+import { RouterState } from "../index.d.ts";
 
-const router = new Router<{ session: Session }>();
+const router = new Router<RouterState>();
 
 async function resolve<
   T,
@@ -59,7 +61,11 @@ async function reject<
   await next();
 }
 
-router.get("/search/:keywords", async (ctx, next) => {
+export const searchKeywords: RouterMiddleware<
+  string,
+  RouteParams<string>,
+  RouterState
+> = async (ctx, next) => {
   const s = ctx.params.keywords;
   const { limit, offset, type } = helpers.getQuery(ctx);
   if (s) {
@@ -82,9 +88,14 @@ router.get("/search/:keywords", async (ctx, next) => {
     setResponseBody(ctx, 400, undefined);
     await next();
   }
-});
+};
 
-router.get("/musicUrl/:id", async (ctx, next) => {
+router.get("/search/:keywords", searchKeywords);
+
+export async function getMusicUrlById(
+  ctx: RouterContext<string, RouteParams<string>, RouterState>,
+  next: () => Promise<unknown>,
+) {
   const id = ctx.params.id;
   const { br = 999000 } = helpers.getQuery(ctx);
   if (id) {
@@ -111,9 +122,14 @@ router.get("/musicUrl/:id", async (ctx, next) => {
     setResponseBody(ctx, 400, undefined);
     await next();
   }
-});
+}
 
-router.get("/musicUrl/v1/:id", async (ctx, next) => {
+router.get("/musicUrl/:id", getMusicUrlById);
+
+export async function getMusicUrlV1ById(
+  ctx: RouterContext<string, RouteParams<string>, RouterState>,
+  next: () => Promise<unknown>,
+) {
   const id = ctx.params.id;
   const { level = "lossless" } = helpers.getQuery(ctx);
   if (id) {
@@ -147,9 +163,14 @@ router.get("/musicUrl/v1/:id", async (ctx, next) => {
     setResponseBody(ctx, 400, undefined);
     await next();
   }
-});
+}
 
-router.get("/song/detail/:id", async (ctx, next) => {
+router.get("/musicUrl/v1/:id", getMusicUrlV1ById);
+
+export async function getSongDetailById(
+  ctx: RouterContext<string, RouteParams<string>, RouterState>,
+  next: () => Promise<unknown>,
+) {
   const id = ctx.params.id;
 
   if (id) {
@@ -166,8 +187,9 @@ router.get("/song/detail/:id", async (ctx, next) => {
         const result = {
           code: res.code,
           result: {
-            ...res.songs[0]?.al,
+            ...res.songs[0],
             artists: res.songs[0]?.ar,
+            album: res.songs[0]?.al,
           },
         };
         return resolve(result, cookie, ctx, next);
@@ -179,7 +201,8 @@ router.get("/song/detail/:id", async (ctx, next) => {
     setResponseBody(ctx, 400, undefined);
     await next();
   }
-});
+}
+router.get("/song/detail/:id", getSongDetailById);
 
 router.get("/song/lyric/:id", async (ctx, next) => {
   const id = ctx.params.id;
@@ -204,11 +227,14 @@ router.get("/song/lyric/:id", async (ctx, next) => {
   }
 });
 
-router.get("/album/:id", async (ctx, next) => {
+export async function getAlbumById(
+  ctx: RouterContext<string, RouteParams<string>, RouterState>,
+  next: () => Promise<unknown>,
+) {
   const id = ctx.params.id;
   if (id) {
     const NEM_cookie = await ctx.state.session.get("NEM_cookie") as string;
-    await createWebAPIRequest<NEMAPIFactory<SearchSongResultType>>(
+    await createWebAPIRequest<NEMAPIFactory<AlbumDetailMsgType>>(
       "music.163.com",
       `/weapi/v1/album/${id}`,
       {},
@@ -221,7 +247,9 @@ router.get("/album/:id", async (ctx, next) => {
     setResponseBody(ctx, 400, undefined);
     await next();
   }
-});
+}
+
+router.get("/album/:id", getAlbumById);
 
 router.post("/login", async (ctx, next) => {
   const { username, password } = await ctx.request.body({ type: "json" }).value;
